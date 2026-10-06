@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { PageTitle, Section } from "@/components/monitor/parts";
+import { DevelopmentHistory } from "@/components/settings/DevelopmentHistory";
 import { Badge } from "@/components/ui";
 import { resolveMaxPages } from "@/lib/crawl/crawler";
 import { MAX_LINK_CHECKS } from "@/lib/links/check";
@@ -56,6 +57,10 @@ export default async function SettingsPage() {
         title="設定"
         lead="このツールの設定の状態です。値の変更は Vercel の環境変数で行い、再デプロイすると反映されます（パスワードなどの値はここには表示しません）。"
       />
+
+      <Section title="開発・更新履歴">
+        <DevelopmentHistory />
+      </Section>
 
       <Section title="定期監視">
         <div className="rounded-xl border border-line bg-panel">

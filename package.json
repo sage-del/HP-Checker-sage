@@ -12,7 +12,10 @@
     "docs:system:check": "node scripts/update-system-docs.mjs --check",
     "pretest": "npm run docs:system:check",
     "test": "vitest run",
-    "seo:report": "node scripts/seo-report.mjs"
+    "seo:report": "node scripts/seo-report.mjs",
+    "history:update": "node scripts/update-development-history.mjs",
+    "prebuild": "npm run history:update",
+    "predev": "npm run history:update"
   },
   "dependencies": {
     "@mozilla/readability": "^0.6.0",

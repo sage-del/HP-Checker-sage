@@ -1,0 +1,76 @@
+{
+  "revision": "1d3de7f524f85d3c1237ac18fb69df980524dd3f",
+  "shallow": false,
+  "commits": [
+    {
+      "sha": "1d3de7f524f85d3c1237ac18fb69df980524dd3f",
+      "date": "2026-10-02T06:40:20Z",
+      "author": "松下",
+      "title": "システム構成ドキュメントと画面を追加",
+      "body": ""
+    },
+    {
+      "sha": "c36af41fcacd4ed2c959d0bb8ff9076137d2b334",
+      "date": "2026-10-02T06:31:20Z",
+      "author": "松下",
+      "title": "Vercel OIDCの鍵なしGoogle認証に対応",
+      "body": ""
+    },
+    {
+      "sha": "4cccab6ac9a9ef85b0483bf593456f1e884ff943",
+      "date": "2026-10-02T04:12:55Z",
+      "author": "松下",
+      "title": "Google連携の保留タスクを記録",
+      "body": ""
+    },
+    {
+      "sha": "f56216e9d6eecf396867729b9795bec5bddcd8fd",
+      "date": "2026-10-02T03:50:23Z",
+      "author": "松下",
+      "title": "自動化APIの認証経路を分離",
+      "body": ""
+    },
+    {
+      "sha": "093724632410754691c784333f739c61797a4eeb",
+      "date": "2026-10-02T03:46:58Z",
+      "author": "松下",
+      "title": "GA4・GSC連携のSEO自動化APIを追加",
+      "body": ""
+    },
+    {
+      "sha": "0836ea48d124a506d0fa933ab26d3aa09ba7a4ac",
+      "date": "2026-10-02T12:08:01+09:00",
+      "author": "matsu609",
+      "title": "Merge pull request #2 from sage-del/claude/dazzling-heisenberg-b2lvu7",
+      "body": "管理画面化: 左サイドバーに機能ごとのタブを追加"
+    },
+    {
+      "sha": "88fa2ab6dada462675db8e673e765ec242c9ad26",
+      "date": "2026-10-02T03:07:42Z",
+      "author": "Claude",
+      "title": "管理画面化: 左サイドバーに機能ごとのタブを追加",
+      "body": "- 左サイドバー（スマホは上部の「メニュー」から開くドロワー）に機能ごとのタブを並べた\n  （サイト診断 / ダッシュボード / サイト追加 / リンク切れ / 診断履歴 / 通知 / 設定）。\n  メニューは src/components/shell/nav.ts が唯一の定義。通知タブに未読数のバッジ\n- ダッシュボード: 監視サイト数・平均スコア・リンク切れ・未読の通知の集計カード\n- 新しいタブ: サイト追加（登録後はサイト詳細へ）、リンク切れ（全サイト）、\n  診断履歴（全サイト・絞り込み）、設定（接続・ログイン・Cron の状態。値は表示しない）\n- 修正: postgres ドライバーが jsonb の文字列パラメータを二重に JSON 化し、\n  SQL 側の result -> 'links' が読めなかった。$n::text::jsonb で渡し、\n  既に文字列で保存した行はマイグレーションで直す。実ドライバーでのテストを追加\n  （TEST_DATABASE_URL があるときだけ動く）"
+    },
+    {
+      "sha": "c18dba98c1633b728813ef279dac029a73b25907",
+      "date": "2026-10-02T11:56:56+09:00",
+      "author": "matsu609",
+      "title": "Merge pull request #1 from sage-del/claude/dazzling-heisenberg-b2lvu7",
+      "body": "定期監視・ツール内通知・リンク切れ検出・アクセス制限を追加"
+    },
+    {
+      "sha": "02b4dcba8026bd5724dfcbcfde9fa541fe35cc0e",
+      "date": "2026-10-02T02:36:28Z",
+      "author": "Claude",
+      "title": "定期監視・ツール内通知・リンク切れ検出・アクセス制限を追加",
+      "body": "- 定期監視（/monitor）: 登録サイトを毎日 / 毎週自動診断し、結果を Postgres に保存\n  （DATABASE_URL。テーブルは初回に自動作成）。スコア推移・診断の記録・保存レポートの表示\n- ツール内通知: 前回より悪くなったとき（診断不可・新たな重大 / 警告・新たなリンク切れ・\n  スコア 5 点以上の低下）と、改善・復旧したときに通知。ヘッダーのベルに未読数\n- リンク切れ検出: サイト内のリンク・画像・CSS・JS の 404 / 410 / 5xx / 接続不可を検出\n  （監視の診断のみ。採点には入れない）\n- 定期実行: Vercel Cron（毎日 3:00 JST）が /api/cron/monitor を呼ぶ（CRON_SECRET で認証）\n- アクセス制限: BASIC_AUTH_PASSWORD でサイト全体に Basic 認証（src/proxy.ts）。\n  本番で監視を有効にしてパスワードが無い場合は /monitor を 503 で止める"
+    },
+    {
+      "sha": "d1ae127e763888d31c0641b296c759eb8053bd7c",
+      "date": "2026-10-02T01:41:59Z",
+      "author": "松下",
+      "title": "HPチェックツールを初期登録",
+      "body": ""
+    }
+  ]
+}
