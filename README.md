@@ -44,13 +44,14 @@ npm run dev                  # http://localhost:3000
 <!-- SYSTEM_ARCHITECTURE:START -->
 ## システム構成（自動生成）
 
-この節は `src/data/system-architecture.json` から生成しています（構成情報の更新日: 2026-10-02）。画面の「システム構成」タブも同じデータを表示します。
+この節は `src/data/system-architecture.json` から生成しています（構成情報の更新日: 2026-10-06）。画面の「システム構成」タブも同じデータを表示します。
 
 ```text
 手動サイト診断: 利用者 → Next.js画面 → POST /api/site → 診断対象サイト
 定期監視: Vercel Cron → GET /api/cron/monitor → 診断エンジン → Postgres
 SEO自動分析: Codex → POST /api/automation/seo-report → Vercel OIDC / Google WIF → GA4 + GSC
 開発・公開: Codexクラウド環境 → GitHub main → Vercel Build → 本番ツール
+開発・更新履歴: Gitコミット履歴 → npm run history:update（prebuild / predev） → src/data/development-history.json → 設定の開発・更新履歴
 ```
 
 ### 連携API・サービス
@@ -91,6 +92,7 @@ SEO自動分析: Codex → POST /api/automation/seo-report → Vercel OIDC / Goo
 - npm run docs:system:checkを実行し、JSONとREADMEのずれがないことを確認する。
 - APIキー、パスワード、接続文字列、JSON秘密鍵などの秘密値はJSON・README・画面へ保存しない。
 - 本番反映前にlint、typecheck、test、buildを実行し、変更した連携の疎通も確認する。
+- 開発・更新履歴は npm run history:update で生成する。公開前にコミットの件名・本文・作者名が画面に表示されることを確認する。浅いクローンでは取得できた履歴のみ表示する。
 <!-- SYSTEM_ARCHITECTURE:END -->
 
 ---
