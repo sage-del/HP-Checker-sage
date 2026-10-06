@@ -21,6 +21,8 @@ npm run dev                  # http://localhost:3000
 | タブ | パス | 内容 |
 |---|---|---|
 | サイト診断 | `/` | サイト診断（SEO・AIO） |
+| GSC · 検索の改善 | `/analytics/gsc` | 検索需要とページ別成果から優先ページを選び、検索意図・指名検索・改善仮説を確認 |
+| GA4 · 訪問と成果 | `/analytics/ga4` | Google自然検索の訪問・主要成果・行動イベントと改善前後を確認 |
 | ダッシュボード | `/monitor` | 監視サイト数・平均スコア・リンク切れ・未読の通知の集計と、監視サイトの一覧 |
 | サイト追加 | `/monitor/new` | 監視するサイトの登録（登録後はそのサイトの詳細へ） |
 | リンク切れ | `/monitor/links` | 全監視サイトの最新のリンク切れ |
@@ -37,6 +39,7 @@ npm run dev                  # http://localhost:3000
 | `/api/monitor/sites/[id]/run` | 監視サイトを今すぐ診断して記録する |
 | `/api/monitor/alerts/unread` | 未読の通知数（サイドバーの「通知」タブのバッジ） |
 | `/api/cron/monitor` | 定期診断（Vercel Cron が呼ぶ） |
+| `/api/analytics/report` | Google分析画面の読み取り専用API（本番ではBasic認証必須） |
 | `/api/automation/seo-report` | サイト診断・GA4・GSCを統合するCodex向けAPI（Bearer認証） |
 
 ---
@@ -52,6 +55,7 @@ npm run dev                  # http://localhost:3000
 SEO自動分析: Codex → POST /api/automation/seo-report → Vercel OIDC / Google WIF → GA4 + GSC
 開発・公開: Codexクラウド環境 → GitHub main → Vercel Build → 本番ツール
 開発・更新履歴: Gitコミット履歴 → npm run history:update（prebuild / predev） → src/data/development-history.json → 設定の開発・更新履歴
+Google分析画面: GSC / GA4タブ → GET /api/analytics/report → Google読み取り専用API → 入口ページ照合・改善候補 → ブラウザ内の改善記録 / Codex依頼文
 ```
 
 ### 連携API・サービス
@@ -60,8 +64,8 @@ SEO自動分析: Codex → POST /api/automation/seo-report → Vercel OIDC / Goo
 |---|---|---|---|---|---|
 | GitHub<br>sage-del/HP-Checker-sage | ソース管理 | ソースコード・README・変更履歴の保管 | GitHub認証 | 稼働中 | `main branch` |
 | Vercel<br>Hosting / Build / Cron / OIDC | 実行基盤 | Next.jsのビルド・公開、定期実行、Google向け短期OIDCトークンの発行 | GitHub連携・Vercel OIDC | 稼働中 | `VERCEL_OIDC_TOKEN（自動設定）` |
-| Google Analytics Data API<br>analyticsdata.googleapis.com | 分析データ | 自然検索のセッション、エンゲージメント、ランディングページを取得 | Google Workload Identity + サービスアカウント | 環境変数の設定待ち | `GA4_PROPERTY_ID`<br>`GOOGLE_SERVICE_ACCOUNT_EMAIL`<br>`GOOGLE_WORKLOAD_IDENTITY_AUDIENCE` |
-| Google Search Console API<br>searchconsole.googleapis.com | 検索データ | 検索語句・ページ別のクリック、表示、CTR、平均掲載順位を取得 | Google Workload Identity + サービスアカウント | 環境変数の設定待ち | `GSC_SITE_URL`<br>`GOOGLE_SERVICE_ACCOUNT_EMAIL`<br>`GOOGLE_WORKLOAD_IDENTITY_AUDIENCE` |
+| Google Analytics Data API<br>analyticsdata.googleapis.com | 分析データ | google / organicの訪問・選択したキーイベント・セッション成果率・入口ページ・行動イベントを取得 | Google Workload Identity + サービスアカウント | 環境変数の設定待ち | `GA4_PROPERTY_ID`<br>`GA4_PRIMARY_KEY_EVENT（任意）`<br>`BASIC_AUTH_PASSWORD（本番画面で必須）`<br>`GOOGLE_SERVICE_ACCOUNT_EMAIL`<br>`GOOGLE_WORKLOAD_IDENTITY_AUDIENCE` |
+| Google Search Console API<br>searchconsole.googleapis.com | 検索データ | ウェブ検索の合計・ページ・検索語句を独立取得し、期間・デバイスをそろえて比較 | Google Workload Identity + サービスアカウント | 環境変数の設定待ち | `GSC_SITE_URL`<br>`GOOGLE_SERVICE_ACCOUNT_EMAIL`<br>`GOOGLE_WORKLOAD_IDENTITY_AUDIENCE` |
 | Google Security Token Service API<br>sts.googleapis.com | 認証 | Vercel OIDCトークンをGoogleの短期認証情報へ交換 | OIDC / OAuth 2.0 Token Exchange | 疎通確認待ち | `GOOGLE_WORKLOAD_IDENTITY_AUDIENCE` |
 | IAM Service Account Credentials API<br>iamcredentials.googleapis.com | 認証 | サービスアカウントの短期アクセストークンを発行 | Workload Identity Federation | 疎通確認待ち | `GOOGLE_SERVICE_ACCOUNT_EMAIL` |
 | PostgreSQL<br>Neon / Supabase / Vercel Postgres等 | データ保存 | 定期監視サイト、診断履歴、リンク切れ、通知を保存 | 接続文字列（サーバー側のみ） | 任意機能 | `DATABASE_URL` |
@@ -71,8 +75,9 @@ SEO自動分析: Codex → POST /api/automation/seo-report → Vercel OIDC / Goo
 
 | Method | Path | 用途 | 認証 |
 |---|---|---|---|
+| GET | `/api/analytics/report` | GSC・GA4を同条件で取得し、対象期間と同じ長さの前期間を比較（片方の失敗は個別表示） | サイト全体Basic認証（本番では必須） |
 | POST | `/api/site` | サイト全体をクロールし、進捗と診断結果を配信 | 任意のサイト全体Basic認証 |
-| POST | `/api/automation/seo-report` | 技術診断・GA4・GSCを統合したSEOレポート | AUTOMATION_API_KEY（Bearer） |
+| POST | `/api/automation/seo-report` | 技術診断・GA4・GSCを統合したSEOレポート（期間・デバイス・主要成果を指定可能） | AUTOMATION_API_KEY（Bearer） |
 | GET | `/api/cron/monitor` | 期限の来た監視サイトを定期診断 | CRON_SECRET（Bearer） |
 | POST | `/api/monitor/sites/[id]/run` | 指定した監視サイトを今すぐ診断 | サイト全体Basic認証 |
 | GET | `/api/monitor/alerts/unread` | 未読通知数を取得 | サイト全体Basic認証 |
@@ -92,6 +97,7 @@ SEO自動分析: Codex → POST /api/automation/seo-report → Vercel OIDC / Goo
 - npm run docs:system:checkを実行し、JSONとREADMEのずれがないことを確認する。
 - APIキー、パスワード、接続文字列、JSON秘密鍵などの秘密値はJSON・README・画面へ保存しない。
 - 本番反映前にlint、typecheck、test、buildを実行し、変更した連携の疎通も確認する。
+- Google分析画面は本番でBasic認証を必須とし、未取得・匿名化・取得上限・少ない訪問数を0や成果判定へ置き換えない。実サイトの分析と公開は利用者の依頼に従う。
 - 開発・更新履歴は npm run history:update で生成する。公開前にコミットの件名・本文・作者名が画面に表示されることを確認する。浅いクローンでは取得できた履歴のみ表示する。
 <!-- SYSTEM_ARCHITECTURE:END -->
 
@@ -219,7 +225,7 @@ SEO自動分析: Codex → POST /api/automation/seo-report → Vercel OIDC / Goo
 | `NEXT_PUBLIC_APP_VERSION` | 任意 | フッターのバージョン表記 |
 | `NEXT_PUBLIC_CONTACT_NAME` / `NEXT_PUBLIC_CONTACT_URL` | 任意 | レポート末尾「次のステップ」に出す運営元の連絡先 |
 | `DATABASE_URL` | 監視で必須 | 定期監視の保存先（Postgres の接続文字列）。未設定なら監視機能は出ない |
-| `BASIC_AUTH_USER` / `BASIC_AUTH_PASSWORD` | 監視で必須 | サイト全体の Basic 認証（ユーザー名の既定は `admin`） |
+| `BASIC_AUTH_USER` / `BASIC_AUTH_PASSWORD` | 監視・Google分析画面の本番利用で必須 | サイト全体の Basic 認証（ユーザー名の既定は `admin`） |
 | `CRON_SECRET` | 監視で必須 | Vercel Cron の呼び出しを確かめる合言葉。本番で未設定だと定期診断は動かない |
 | `ALLOW_PRIVATE_HOSTS` | 開発用 | localhost や LAN 内のサイトを診断したいときだけ `1`。**本番では絶対に設定しない** |
 | `GOOGLE_SERVICE_ACCOUNT_EMAIL` | Vercel自動化で必須 | Workload Identityから利用するサービスアカウント |
@@ -228,6 +234,7 @@ SEO自動分析: Codex → POST /api/automation/seo-report → Vercel OIDC / Goo
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | ローカル開発用 | JSON鍵が許可される環境だけで使う代替方式。本番では不要 |
 | `GA4_PROPERTY_ID` | 自動化で必須 | GA4の数字のプロパティID（測定IDではありません） |
 | `GSC_SITE_URL` | 自動化で必須 | `sc-domain:example.com` またはURLプレフィックス |
+| `GA4_PRIMARY_KEY_EVENT` | 任意 | 分析画面で既定とする主要な成果（GA4に登録済みのキーイベント名） |
 | `AUTOMATION_API_KEY` | 自動化で必須 | 自動化APIを保護するランダムなBearerキー |
 | `HP_CHECKER_BASE_URL` | Codexで必須 | デプロイしたツールのURL |
 | `HP_CHECKER_API_KEY` | Codexで必須 | `AUTOMATION_API_KEY`と同じ値をCodex側に設定 |
@@ -238,6 +245,18 @@ SEO自動分析: Codex → POST /api/automation/seo-report → Vercel OIDC / Goo
 ## GA4・Search Console・Codex 自動化
 
 自社サイトだけを無人実行する用途では、Googleのサービスアカウントを使います。Vercel本番環境ではWorkload Identity連携を使用し、長期間有効なJSON秘密鍵は保存しません。利用者のGoogleログイン操作は不要です。手動診断の画面と `/api/site` は、Google連携を設定しなくても従来どおり動きます。
+
+### 分析画面の使い方
+
+1. GSCまたはGA4タブで「サンプルで操作を試す」を選ぶと、実データを取得せず改善フローを確認できます。
+2. 連携設定後、期間・デバイス・主要な成果を指定して「同じ条件でデータを取得」を押します。初期表示ではAPIを呼びません。片方だけの連携でもその指標を表示します。
+3. 「最初に確認したい3ページ」から入口ページを選び、GSCの検索語句と本文、GA4の訪問数・成果率を照らし合わせます。社名・製品名で検索語句を絞り込めます。
+4. 改善仮説と実施内容を記録し、「Codexへの分析依頼をコピー」で依頼文を作ります。コピーしただけでは分析・修正・送信は実行されません。メモはそのブラウザのlocalStorageに保存し、チーム間では共有しません。
+5. 改善公開日を記録すると、公開当日を除いた前後28日を比較できます。GSCの確定データを待つため、公開31日後ごろに比較できます。
+
+両APIの取得条件は同じ日付・デバイス・すべての国です。GA4は `google / organic`、GSCはウェブ検索を対象とし、既定期間は3日前までの28日間です。GSCの日付は太平洋時間、GA4はプロパティのタイムゾーンであり、クリック数とセッション数は一致しません。GA4の成果率は `sessionKeyEventRate:イベント名` を使い、イベント回数をセッション数で割った値と区別します。GSCの合計・ページは検索語句と独立取得し、匿名化語句の欠落を合計へ持ち込みません。
+
+本番画面は `BASIC_AUTH_PASSWORD` が必須です。APIキーやGoogleの秘密値はブラウザへ渡しません。上位200ページと取得範囲内の語句を表示し、少ない訪問数・未選択の主要成果・取得失敗・しきい値の影響を明示します。キーイベントを選ばないと全キーイベントの回数を表示しますが、主要な成果としての評価は行いません。行動イベントの一覧は同一ユーザーの順序を追うファネルではなく、計測内容の確認に使います。
 
 ### Google側の準備
 
@@ -280,7 +299,7 @@ Codexのクラウド環境に `HP_CHECKER_BASE_URL`、`HP_CHECKER_API_KEY`、必
 
 ```bash
 npm run seo:report -- --url "https://www.example.com"
-npm run seo:report -- --url "https://www.example.com" --start-date 2026-09-01 --end-date 2026-09-30
+npm run seo:report -- --url "https://www.example.com" --start-date 2026-09-01 --end-date 2026-09-30 --device mobile --key-event generate_lead
 ```
 
 リポジトリの `AGENTS.md` にこの手順を記載しているため、Codexへ「example.comのSEOレポートを作成して」と指示すると、このAPIを使う前提で作業します。

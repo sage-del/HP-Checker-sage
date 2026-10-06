@@ -13,6 +13,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { checkBasicAuth } from "@/lib/monitor/auth";
 
 const MONITOR_PATH = /^\/(monitor|api\/monitor)(\/|$)/;
+const ANALYTICS_PATH = /^\/(analytics|api\/analytics)(\/|$)/;
 const AUTOMATION_PATH = /^\/api\/automation(\/|$)/;
 
 export function proxy(request: NextRequest) {
@@ -29,6 +30,10 @@ export function proxy(request: NextRequest) {
         "Content-Type": "text/plain; charset=utf-8",
       },
     });
+  }
+
+  if (process.env.NODE_ENV === "production" && ANALYTICS_PATH.test(request.nextUrl.pathname)) {
+    return new NextResponse("Google分析データの閲覧には BASIC_AUTH_PASSWORD を設定してください", { status: 503, headers: { "Content-Type": "text/plain; charset=utf-8" } });
   }
 
   if (

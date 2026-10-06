@@ -25,6 +25,13 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     items: [{ href: "/", label: "サイト診断", icon: "diagnose" }],
   },
   {
+    label: "SEO改善",
+    items: [
+      { href: "/analytics/gsc", label: "GSC · 検索の改善", icon: "diagnose" },
+      { href: "/analytics/ga4", label: "GA4 · 訪問と成果", icon: "dashboard" },
+    ],
+  },
+  {
     label: "定期監視",
     items: [
       { href: "/monitor", label: "ダッシュボード", icon: "dashboard", alsoActive: ["/monitor/sites/"] },

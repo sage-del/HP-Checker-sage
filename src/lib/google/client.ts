@@ -1,8 +1,4 @@
-import {
-  clearGoogleAccessToken,
-  getGoogleAccessToken,
-  type GoogleIntegrationConfig,
-} from "./auth";
+import { clearGoogleAccessToken, getGoogleAccessToken, type GoogleIntegrationConfig } from "./auth";
 import type {
   Ga4LandingPage,
   Ga4OrganicReport,
@@ -11,10 +7,6 @@ import type {
   GscSearchReport,
   SeoDateRange,
 } from "./types";
-
-interface GoogleApiErrorBody {
-  error?: { message?: string; status?: string };
-}
 
 export class GoogleApiError extends Error {
   constructor(
@@ -34,8 +26,8 @@ async function googlePost<T>(
   body: unknown,
   signal?: AbortSignal,
 ): Promise<T> {
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    const token = await getGoogleAccessToken(config);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const token = await getGoogleAccessToken(config, Date.now(), signal);
     const response = await fetch(url, {
       method: "POST",
       headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
@@ -47,32 +39,36 @@ async function googlePost<T>(
       clearGoogleAccessToken();
       continue;
     }
-    const json = (await response.json().catch(() => null)) as (T & GoogleApiErrorBody) | null;
-    if (!response.ok || !json) {
-      const detail = json?.error?.message;
+    const json = (await response.json().catch(() => null)) as T | null;
+    if (!response.ok || !json)
       throw new GoogleApiError(
         source,
         response.status,
-        `${source.toUpperCase()} API の取得に失敗しました（HTTP ${response.status}）${detail ? `: ${detail}` : ""}`,
+        `${source.toUpperCase()} API の取得に失敗しました（HTTP ${response.status}）`,
       );
-    }
     return json;
   }
   throw new GoogleApiError(source, 401, `${source.toUpperCase()} API の認証に失敗しました`);
 }
 
-function number(value: string | number | undefined): number {
-  const parsed = typeof value === "number" ? value : Number.parseFloat(value ?? "0");
-  return Number.isFinite(parsed) ? parsed : 0;
+const number = (value: string | number | undefined) => {
+  const n = Number(value ?? 0);
+  return Number.isFinite(n) ? n : 0;
+};
+const rate = (engaged: number, sessions: number) => (sessions > 0 ? engaged / sessions : null);
+export interface AnalyticsFilters {
+  device?: "desktop" | "mobile" | "tablet";
+  keyEvent?: string;
 }
-
-function engagementRate(engaged: number, sessions: number): number | null {
-  return sessions > 0 ? engaged / sessions : null;
+interface Ga4Row {
+  dimensionValues?: Array<{ value?: string }>;
+  metricValues?: Array<{ value?: string }>;
 }
-
 interface Ga4Response {
-  rows?: Array<{ dimensionValues?: Array<{ value?: string }>; metricValues?: Array<{ value?: string }> }>;
-  totals?: Array<{ metricValues?: Array<{ value?: string }> }>;
+  rows?: Ga4Row[];
+  totals?: Ga4Row[];
+  rowCount?: number;
+  metadata?: { subjectToThresholding?: boolean; dataLossFromOtherRow?: boolean };
 }
 
 export async function fetchGa4OrganicReport(
@@ -80,91 +76,176 @@ export async function fetchGa4OrganicReport(
   dateRange: SeoDateRange,
   limit = 100,
   signal?: AbortSignal,
+  options: AnalyticsFilters = {},
 ): Promise<Ga4OrganicReport> {
+  const url = `https://analyticsdata.googleapis.com/v1beta/properties/${config.ga4PropertyId}:runReport`;
+  const filters = [
+    { filter: { fieldName: "sessionSourceMedium", stringFilter: { matchType: "EXACT", value: "google / organic" } } },
+    ...(options.device
+      ? [{ filter: { fieldName: "deviceCategory", stringFilter: { matchType: "EXACT", value: options.device } } }]
+      : []),
+  ];
+  const dimensions = [{ name: "hostName" }, { name: "landingPagePlusQueryString" }];
+  const metrics = [
+    { name: "sessions" },
+    { name: "activeUsers" },
+    { name: "engagedSessions" },
+    { name: "keyEvents" },
+    ...(options.keyEvent ? [{ name: `sessionKeyEventRate:${options.keyEvent}` }] : []),
+  ];
+  const base = {
+    dateRanges: [dateRange],
+    dimensionFilter: { andGroup: { expressions: filters } },
+    metricAggregations: ["TOTAL"],
+  };
+  const rowLimit = Math.min(Math.max(limit, 1), 1000);
+  const response = await googlePost<Ga4Response>(
+    config,
+    "ga4",
+    url,
+    {
+      ...base,
+      dimensions,
+      metrics,
+      orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
+      limit: String(rowLimit),
+    },
+    signal,
+  );
+  // 成果回数と「成果が起きたセッションの割合」は別の指標。イベントで絞るのは回数レポートのみ。
+  const eventResponse = options.keyEvent
+    ? await googlePost<Ga4Response>(
+        config,
+        "ga4",
+        url,
+        {
+          ...base,
+          dimensions,
+          metrics: [{ name: "keyEvents" }],
+          dimensionFilter: {
+            andGroup: {
+              expressions: [
+                ...filters,
+                { filter: { fieldName: "eventName", stringFilter: { matchType: "EXACT", value: options.keyEvent } } },
+              ],
+            },
+          },
+          limit: "10000",
+        },
+        signal,
+      )
+    : null;
+  const eventKey = (row: Ga4Row) => `${row.dimensionValues?.[0]?.value}|${row.dimensionValues?.[1]?.value}`;
+  const events = new Map(
+    (eventResponse?.rows ?? []).map((row) => [eventKey(row), number(row.metricValues?.[0]?.value)]),
+  );
+  const landingPages: Ga4LandingPage[] = (response.rows ?? []).map((row) => {
+    const m = row.metricValues ?? [];
+    const sessions = number(m[0]?.value);
+    const engaged = number(m[2]?.value);
+    return {
+      hostname: row.dimensionValues?.[0]?.value || "(not set)",
+      path: row.dimensionValues?.[1]?.value || "(not set)",
+      sessions,
+      activeUsers: number(m[1]?.value),
+      engagedSessions: engaged,
+      keyEvents: eventResponse ? (events.get(eventKey(row)) ?? 0) : number(m[3]?.value),
+      engagementRate: rate(engaged, sessions),
+      sessionKeyEventRate: options.keyEvent && sessions > 0 ? number(m[4]?.value) : null,
+    };
+  });
+  const m = response.totals?.[0]?.metricValues ?? [];
+  const sessions = number(m[0]?.value);
+  const engaged = number(m[2]?.value);
+  const dataQuality: string[] = [];
+  if (response.metadata?.subjectToThresholding || eventResponse?.metadata?.subjectToThresholding)
+    dataQuality.push("GA4のしきい値により一部のデータが非表示になる可能性があります。");
+  if (response.metadata?.dataLossFromOtherRow || eventResponse?.metadata?.dataLossFromOtherRow)
+    dataQuality.push("GA4の集約行により、一部のページを識別できない可能性があります。");
+  if ((eventResponse?.rowCount ?? 0) > 10000) dataQuality.push("成果回数のページ別取得上限に達しています。");
+  return {
+    propertyId: config.ga4PropertyId,
+    dateRange,
+    keyEvent: options.keyEvent,
+    landingPages,
+    limited: (response.rowCount ?? 0) > rowLimit,
+    dataQuality,
+    totals: {
+      sessions,
+      activeUsers: number(m[1]?.value),
+      engagedSessions: engaged,
+      keyEvents: eventResponse ? number(eventResponse.totals?.[0]?.metricValues?.[0]?.value) : number(m[3]?.value),
+      engagementRate: rate(engaged, sessions),
+      sessionKeyEventRate: options.keyEvent && sessions > 0 ? number(m[4]?.value) : null,
+    },
+  };
+}
+
+/** 順序を持つファネルではなく、測定された行動の一覧。 */
+export async function fetchGa4Events(
+  config: GoogleIntegrationConfig,
+  dateRange: SeoDateRange,
+  signal?: AbortSignal,
+  options: AnalyticsFilters = {},
+) {
   const response = await googlePost<Ga4Response>(
     config,
     "ga4",
     `https://analyticsdata.googleapis.com/v1beta/properties/${config.ga4PropertyId}:runReport`,
     {
       dateRanges: [dateRange],
-      dimensions: [{ name: "landingPagePlusQueryString" }],
-      metrics: [
-        { name: "sessions" },
-        { name: "activeUsers" },
-        { name: "engagedSessions" },
-        { name: "keyEvents" },
-      ],
+      dimensions: [{ name: "eventName" }],
+      metrics: [{ name: "eventCount" }],
       dimensionFilter: {
-        filter: {
-          fieldName: "sessionDefaultChannelGroup",
-          stringFilter: { matchType: "EXACT", value: "Organic Search" },
+        andGroup: {
+          expressions: [
+            {
+              filter: {
+                fieldName: "sessionSourceMedium",
+                stringFilter: { matchType: "EXACT", value: "google / organic" },
+              },
+            },
+            ...(options.device
+              ? [
+                  {
+                    filter: {
+                      fieldName: "deviceCategory",
+                      stringFilter: { matchType: "EXACT", value: options.device },
+                    },
+                  },
+                ]
+              : []),
+          ],
         },
       },
-      metricAggregations: ["TOTAL"],
-      orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
-      limit: String(Math.min(Math.max(limit, 1), 1000)),
+      orderBys: [{ metric: { metricName: "eventCount" }, desc: true }],
+      limit: "1000",
     },
     signal,
   );
-
-  const landingPages: Ga4LandingPage[] = (response.rows ?? []).map((row) => {
-    const metrics = row.metricValues ?? [];
-    const sessions = number(metrics[0]?.value);
-    const engagedSessions = number(metrics[2]?.value);
-    return {
-      path: row.dimensionValues?.[0]?.value || "(not set)",
-      sessions,
-      activeUsers: number(metrics[1]?.value),
-      engagedSessions,
-      keyEvents: number(metrics[3]?.value),
-      engagementRate: engagementRate(engagedSessions, sessions),
-    };
-  });
-  const totalValues = response.totals?.[0]?.metricValues ?? [];
-  const totalSessions = number(totalValues[0]?.value);
-  const totalEngaged = number(totalValues[2]?.value);
-  return {
-    propertyId: config.ga4PropertyId,
-    dateRange,
-    totals: {
-      sessions: totalSessions,
-      activeUsers: number(totalValues[1]?.value),
-      engagedSessions: totalEngaged,
-      keyEvents: number(totalValues[3]?.value),
-      engagementRate: engagementRate(totalEngaged, totalSessions),
-    },
-    landingPages,
-  };
+  return (response.rows ?? []).map((row) => ({
+    name: row.dimensionValues?.[0]?.value || "(not set)",
+    count: number(row.metricValues?.[0]?.value),
+  }));
 }
 
+interface GscRow {
+  keys?: string[];
+  clicks?: number;
+  impressions?: number;
+  ctr?: number;
+  position?: number;
+}
 interface GscResponse {
-  rows?: Array<{ keys?: string[]; clicks?: number; impressions?: number; ctr?: number; position?: number }>;
+  rows?: GscRow[];
 }
-
-function aggregate(
-  rows: GscQueryPageRow[],
-  keyOf: (row: GscQueryPageRow) => string,
-  limit: number,
-): GscMetricRow[] {
-  const values = new Map<string, { clicks: number; impressions: number; weightedPosition: number }>();
-  for (const row of rows) {
-    const key = keyOf(row);
-    const current = values.get(key) ?? { clicks: 0, impressions: 0, weightedPosition: 0 };
-    current.clicks += row.clicks;
-    current.impressions += row.impressions;
-    current.weightedPosition += row.position * row.impressions;
-    values.set(key, current);
-  }
-  return [...values.entries()]
-    .map(([key, value]) => ({
-      key,
-      clicks: value.clicks,
-      impressions: value.impressions,
-      ctr: value.impressions > 0 ? value.clicks / value.impressions : 0,
-      position: value.impressions > 0 ? value.weightedPosition / value.impressions : 0,
-    }))
-    .sort((a, b) => b.clicks - a.clicks || b.impressions - a.impressions)
-    .slice(0, limit);
+function gscMetrics(row: GscRow) {
+  return {
+    clicks: number(row.clicks),
+    impressions: number(row.impressions),
+    ctr: number(row.ctr),
+    position: number(row.position),
+  };
 }
 
 export async function fetchGscSearchReport(
@@ -172,44 +253,61 @@ export async function fetchGscSearchReport(
   dateRange: SeoDateRange,
   limit = 100,
   signal?: AbortSignal,
+  options: AnalyticsFilters = {},
 ): Promise<GscSearchReport> {
-  const response = await googlePost<GscResponse>(
-    config,
-    "gsc",
-    `https://searchconsole.googleapis.com/webmasters/v3/sites/${encodeURIComponent(config.gscSiteUrl)}/searchAnalytics/query`,
-    {
-      ...dateRange,
-      dimensions: ["query", "page"],
-      rowLimit: 25_000,
-      dataState: "final",
-    },
-    signal,
-  );
-  const queryPages: GscQueryPageRow[] = (response.rows ?? []).map((row) => ({
+  const url = `https://searchconsole.googleapis.com/webmasters/v3/sites/${encodeURIComponent(config.gscSiteUrl)}/searchAnalytics/query`;
+  const base = {
+    ...dateRange,
+    type: "web",
+    dataState: "final",
+    ...(options.device
+      ? {
+          dimensionFilterGroups: [
+            { filters: [{ dimension: "device", operator: "equals", expression: options.device.toUpperCase() }] },
+          ],
+        }
+      : {}),
+  };
+  // 匿名化された検索語句の欠落を合計・ページ指標へ持ち込まないよう、それぞれ独立取得。
+  const [total, pages, queries, pairs] = await Promise.all([
+    googlePost<GscResponse>(config, "gsc", url, { ...base, dimensions: [], rowLimit: 1 }, signal),
+    googlePost<GscResponse>(
+      config,
+      "gsc",
+      url,
+      { ...base, dimensions: ["page"], rowLimit: Math.min(limit, 1000) },
+      signal,
+    ),
+    googlePost<GscResponse>(
+      config,
+      "gsc",
+      url,
+      { ...base, dimensions: ["query"], rowLimit: Math.min(limit, 1000) },
+      signal,
+    ),
+    googlePost<GscResponse>(
+      config,
+      "gsc",
+      url,
+      { ...base, dimensions: ["query", "page"], rowLimit: Math.min(Math.max(limit * 5, 100), 25000) },
+      signal,
+    ),
+  ]);
+  const toMetric = (row: GscRow): GscMetricRow => ({ key: row.keys?.[0] || "(not set)", ...gscMetrics(row) });
+  const queryPages: GscQueryPageRow[] = (pairs.rows ?? []).map((row) => ({
     query: row.keys?.[0] || "(not set)",
     page: row.keys?.[1] || "(not set)",
-    clicks: number(row.clicks),
-    impressions: number(row.impressions),
-    ctr: number(row.ctr),
-    position: number(row.position),
+    ...gscMetrics(row),
   }));
-  const clicks = queryPages.reduce((sum, row) => sum + row.clicks, 0);
-  const impressions = queryPages.reduce((sum, row) => sum + row.impressions, 0);
-  const weightedPosition = queryPages.reduce(
-    (sum, row) => sum + row.position * row.impressions,
-    0,
-  );
   return {
     siteUrl: config.gscSiteUrl,
     dateRange,
-    totals: {
-      clicks,
-      impressions,
-      ctr: impressions > 0 ? clicks / impressions : 0,
-      position: impressions > 0 ? weightedPosition / impressions : 0,
-    },
-    topQueries: aggregate(queryPages, (row) => row.query, limit),
-    topPages: aggregate(queryPages, (row) => row.page, limit),
-    queryPages: queryPages.slice(0, Math.min(Math.max(limit * 5, 100), 1000)),
+    totals: gscMetrics(total.rows?.[0] ?? {}),
+    topPages: (pages.rows ?? []).map(toMetric),
+    topQueries: (queries.rows ?? []).map(toMetric),
+    queryPages,
+    limited:
+      (pages.rows?.length ?? 0) >= Math.min(limit, 1000) ||
+      queryPages.length >= Math.min(Math.max(limit * 5, 100), 25000),
   };
 }

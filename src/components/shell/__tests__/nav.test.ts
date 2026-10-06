@@ -15,6 +15,8 @@ describe("isNavActive", () => {
     expect(activeAt("/monitor/runs/12")).toEqual(["診断履歴"]);
     expect(activeAt("/monitor/alerts")).toEqual(["通知"]);
     expect(activeAt("/system")).toEqual(["システム構成"]);
+    expect(activeAt("/analytics/gsc")).toEqual(["GSC · 検索の改善"]);
+    expect(activeAt("/analytics/ga4")).toEqual(["GA4 · 訪問と成果"]);
     expect(activeAt("/settings")).toEqual(["設定"]);
   });
 

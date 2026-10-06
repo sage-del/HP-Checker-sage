@@ -2,11 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { NextRequest } from "next/server";
 import { FetchError } from "@/lib/analyzer";
 import { analyzeSite } from "@/lib/analyzer/site";
-import {
-  buildSeoOpportunities,
-  compactAudit,
-  resolveSeoDateRange,
-} from "@/lib/automation/report";
+import { buildSeoOpportunities, compactAudit, resolveSeoDateRange } from "@/lib/automation/report";
 import { GoogleConfigError, readGoogleConfig } from "@/lib/google/auth";
 import { fetchGa4OrganicReport, fetchGscSearchReport, GoogleApiError } from "@/lib/google/client";
 
@@ -70,6 +66,8 @@ export async function POST(request: NextRequest) {
     endDate?: unknown;
     maxPages?: unknown;
     limit?: unknown;
+    keyEvent?: unknown;
+    device?: unknown;
   };
   try {
     body = await request.json();
@@ -86,14 +84,35 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "limit は数値で指定してください" }, { status: 400, headers: JSON_HEADERS });
   }
 
+  if (
+    body.keyEvent !== undefined &&
+    (typeof body.keyEvent !== "string" || (body.keyEvent !== "" && !/^[A-Za-z][A-Za-z0-9_]{0,39}$/.test(body.keyEvent)))
+  ) {
+    return Response.json(
+      { error: "keyEvent は40文字以内のGA4イベント名で指定してください" },
+      { status: 400, headers: JSON_HEADERS },
+    );
+  }
+  if (body.device !== undefined && !["all", "desktop", "mobile", "tablet"].includes(body.device as string)) {
+    return Response.json(
+      { error: "device は all / desktop / mobile / tablet で指定してください" },
+      { status: 400, headers: JSON_HEADERS },
+    );
+  }
+
   try {
     const config = readGoogleConfig();
     const dateRange = resolveSeoDateRange(body);
     const dataLimit = Math.min(Math.max(Math.trunc((body.limit as number | undefined) ?? 100), 10), 500);
+    const filters = {
+      keyEvent: ((body.keyEvent as string | undefined) ?? process.env.GA4_PRIMARY_KEY_EVENT?.trim()) || undefined,
+      device: body.device && body.device !== "all" ? (body.device as "desktop" | "mobile" | "tablet") : undefined,
+    };
+    const signal = AbortSignal.any([request.signal, AbortSignal.timeout(280000)]);
     const [audit, ga4, gsc] = await Promise.all([
       analyzeSite(body.url, { maxPages: body.maxPages as number | undefined }),
-      fetchGa4OrganicReport(config, dateRange, dataLimit),
-      fetchGscSearchReport(config, dateRange, dataLimit),
+      fetchGa4OrganicReport(config, dateRange, dataLimit, signal, filters),
+      fetchGscSearchReport(config, dateRange, dataLimit, signal, filters),
     ]);
     return Response.json(
       {

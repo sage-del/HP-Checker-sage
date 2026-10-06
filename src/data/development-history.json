@@ -1,7 +1,21 @@
 {
-  "revision": "1d3de7f524f85d3c1237ac18fb69df980524dd3f",
+  "revision": "2af556a8693eb4eb0204ee9f6129d737af37e2de",
   "shallow": false,
   "commits": [
+    {
+      "sha": "2af556a8693eb4eb0204ee9f6129d737af37e2de",
+      "date": "2026-10-06T16:45:55+09:00",
+      "author": "sage",
+      "title": "Merge pull request #3 from sage-del/feat/development-history",
+      "body": "設定から日付別の開発・更新履歴を確認できるようにする"
+    },
+    {
+      "sha": "e13ae153a7200fe62d3c7e3bfc4585296505996d",
+      "date": "2026-10-06T07:45:06Z",
+      "author": "松下",
+      "title": "設定に日付別の開発・更新履歴を追加",
+      "body": ""
+    },
     {
       "sha": "1d3de7f524f85d3c1237ac18fb69df980524dd3f",
       "date": "2026-10-02T06:40:20Z",

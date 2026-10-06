@@ -48,6 +48,18 @@
         "src/data/development-history.json",
         "設定の開発・更新履歴"
       ]
+    },
+    {
+      "id": "google-analysis-ui",
+      "title": "Google分析画面",
+      "description": "Basic認証で保護したGSC・GA4画面から、同じ期間・デバイスの前後比較と入口ページ別の改善候補を確認します。改善記録はブラウザ内、Codexへの依頼は利用者がコピーします。",
+      "steps": [
+        "GSC / GA4タブ",
+        "GET /api/analytics/report",
+        "Google読み取り専用API",
+        "入口ページ照合・改善候補",
+        "ブラウザ内の改善記録 / Codex依頼文"
+      ]
     }
   ],
   "integrations": [
@@ -73,16 +85,16 @@
       "name": "Google Analytics Data API",
       "service": "analyticsdata.googleapis.com",
       "category": "分析データ",
-      "purpose": "自然検索のセッション、エンゲージメント、ランディングページを取得",
+      "purpose": "google / organicの訪問・選択したキーイベント・セッション成果率・入口ページ・行動イベントを取得",
       "authentication": "Google Workload Identity + サービスアカウント",
       "status": "pending-env",
-      "configuration": ["GA4_PROPERTY_ID", "GOOGLE_SERVICE_ACCOUNT_EMAIL", "GOOGLE_WORKLOAD_IDENTITY_AUDIENCE"]
+      "configuration": ["GA4_PROPERTY_ID", "GA4_PRIMARY_KEY_EVENT（任意）", "BASIC_AUTH_PASSWORD（本番画面で必須）", "GOOGLE_SERVICE_ACCOUNT_EMAIL", "GOOGLE_WORKLOAD_IDENTITY_AUDIENCE"]
     },
     {
       "name": "Google Search Console API",
       "service": "searchconsole.googleapis.com",
       "category": "検索データ",
-      "purpose": "検索語句・ページ別のクリック、表示、CTR、平均掲載順位を取得",
+      "purpose": "ウェブ検索の合計・ページ・検索語句を独立取得し、期間・デバイスをそろえて比較",
       "authentication": "Google Workload Identity + サービスアカウント",
       "status": "pending-env",
       "configuration": ["GSC_SITE_URL", "GOOGLE_SERVICE_ACCOUNT_EMAIL", "GOOGLE_WORKLOAD_IDENTITY_AUDIENCE"]
@@ -125,8 +137,9 @@
     }
   ],
   "internalApis": [
+    { "method": "GET", "path": "/api/analytics/report", "purpose": "GSC・GA4を同条件で取得し、対象期間と同じ長さの前期間を比較（片方の失敗は個別表示）", "auth": "サイト全体Basic認証（本番では必須）" },
     { "method": "POST", "path": "/api/site", "purpose": "サイト全体をクロールし、進捗と診断結果を配信", "auth": "任意のサイト全体Basic認証" },
-    { "method": "POST", "path": "/api/automation/seo-report", "purpose": "技術診断・GA4・GSCを統合したSEOレポート", "auth": "AUTOMATION_API_KEY（Bearer）" },
+    { "method": "POST", "path": "/api/automation/seo-report", "purpose": "技術診断・GA4・GSCを統合したSEOレポート（期間・デバイス・主要成果を指定可能）", "auth": "AUTOMATION_API_KEY（Bearer）" },
     { "method": "GET", "path": "/api/cron/monitor", "purpose": "期限の来た監視サイトを定期診断", "auth": "CRON_SECRET（Bearer）" },
     { "method": "POST", "path": "/api/monitor/sites/[id]/run", "purpose": "指定した監視サイトを今すぐ診断", "auth": "サイト全体Basic認証" },
     { "method": "GET", "path": "/api/monitor/alerts/unread", "purpose": "未読通知数を取得", "auth": "サイト全体Basic認証" }
@@ -137,6 +150,7 @@
     "npm run docs:system:checkを実行し、JSONとREADMEのずれがないことを確認する。",
     "APIキー、パスワード、接続文字列、JSON秘密鍵などの秘密値はJSON・README・画面へ保存しない。",
     "本番反映前にlint、typecheck、test、buildを実行し、変更した連携の疎通も確認する。",
+    "Google分析画面は本番でBasic認証を必須とし、未取得・匿名化・取得上限・少ない訪問数を0や成果判定へ置き換えない。実サイトの分析と公開は利用者の依頼に従う。",
     "開発・更新履歴は npm run history:update で生成する。公開前にコミットの件名・本文・作者名が画面に表示されることを確認する。浅いクローンでは取得できた履歴のみ表示する。"
   ],
   "reproductionSteps": [
