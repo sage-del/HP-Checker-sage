@@ -4,6 +4,7 @@ import { PageTitle, Section } from "@/components/monitor/parts";
 import Link from "next/link";
 import { connectionStatus } from "@/lib/analytics/server";
 import { DevelopmentHistory } from "@/components/settings/DevelopmentHistory";
+import { CompanySiteSettings } from "@/components/settings/CompanySiteSettings";
 import { Badge } from "@/components/ui";
 import { resolveMaxPages } from "@/lib/crawl/crawler";
 import { MAX_LINK_CHECKS } from "@/lib/links/check";
@@ -57,8 +58,12 @@ export default async function SettingsPage() {
     <main className="mx-auto w-full max-w-5xl px-4 py-8 md:px-8">
       <PageTitle
         title="設定"
-        lead="このツールの設定の状態です。値の変更は Vercel の環境変数で行い、再デプロイすると反映されます（パスワードなどの値はここには表示しません）。"
+        lead="自社サイトの登録と、このツールの設定状態を確認できます。接続やアクセス制限の変更は Vercel の環境変数で行います（パスワードなどの値はここには表示しません）。"
       />
+
+      <Section title="自社サイト">
+        <CompanySiteSettings />
+      </Section>
 
       <Section title="開発・更新履歴">
         <DevelopmentHistory />

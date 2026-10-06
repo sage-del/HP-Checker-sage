@@ -21,6 +21,16 @@
       "steps": ["利用者", "Next.js画面", "POST /api/site", "診断対象サイト"]
     },
     {
+      "id": "company-site-settings",
+      "title": "自社サイトの登録",
+      "description": "設定画面で自社サイトのHTTP/HTTPS URLをブラウザ内に保存し、診断画面へ自動入力します。変更・登録解除が可能で、Codexへ貼り付ける分析依頼もコピーできます。別端末や自動化APIへは同期せず、登録だけでは分析を開始しません。",
+      "steps": [
+        "設定の自社サイト欄",
+        "ブラウザ内のURL保存",
+        "サイト診断の初期URL / Codex分析依頼文"
+      ]
+    },
+    {
       "id": "scheduled-monitoring",
       "title": "定期監視",
       "description": "Vercel Cronが期限の来たサイトを診断し、結果・リンク切れ・通知をPostgresへ保存します。",

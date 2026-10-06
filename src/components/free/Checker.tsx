@@ -7,7 +7,8 @@
  * - 診断は POST /api/site の NDJSON ストリーム（readNdjson 経由）。範囲はサイト全体だけ
  * - 進捗・中止はここで持ち、描画は free/ の各セクションに任せる
  */
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
+import { companySiteServerSnapshot, readCompanySiteUrl, subscribeCompanySite } from "@/lib/settings/company-site";
 import { Button, Callout } from "@/components/ui";
 import type { SiteAnalysisResult, SiteProgress } from "@/lib/analyzer/types";
 import { requestSiteAnalysis, SiteRequestError } from "@/lib/crawl/client";
@@ -62,7 +63,9 @@ function messageOf(err: unknown): string {
 }
 
 export function Checker() {
-  const [url, setUrl] = useState("");
+  const savedUrl = useSyncExternalStore(subscribeCompanySite, readCompanySiteUrl, companySiteServerSnapshot);
+  const [draftUrl, setUrl] = useState<string | null>(null);
+  const url = draftUrl ?? savedUrl;
   const [state, setState] = useState<State>({ phase: "idle" });
   const [formError, setFormError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
