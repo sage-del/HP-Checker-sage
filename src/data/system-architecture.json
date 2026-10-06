@@ -79,7 +79,7 @@
       "purpose": "Next.jsのビルド・公開、定期実行、Google向け短期OIDCトークンの発行",
       "authentication": "GitHub連携・Vercel OIDC",
       "status": "active",
-      "configuration": ["VERCEL_OIDC_TOKEN（自動設定）"]
+      "configuration": ["x-vercel-oidc-token（実行時のリクエストヘッダーから取得）", "VERCEL_OIDC_TOKEN（ローカル・ビルド時の代替）", "OIDC issuer mode: Team"]
     },
     {
       "name": "Google Analytics Data API",

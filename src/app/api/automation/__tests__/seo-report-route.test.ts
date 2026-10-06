@@ -7,6 +7,9 @@ const names = [
   "GOOGLE_SERVICE_ACCOUNT_JSON",
   "GA4_PROPERTY_ID",
   "GSC_SITE_URL",
+  "GOOGLE_SERVICE_ACCOUNT_EMAIL",
+  "GOOGLE_WORKLOAD_IDENTITY_AUDIENCE",
+  "VERCEL_OIDC_TOKEN",
 ] as const;
 const original = Object.fromEntries(names.map((name) => [name, process.env[name]]));
 
@@ -59,5 +62,22 @@ describe("/api/automation/seo-report", () => {
     process.env.AUTOMATION_API_KEY = "correct-key";
     const response = await POST(request("POST", "correct-key", "{not json"));
     expect(response.status).toBe(400);
+  });
+
+  it("環境変数にトークンがなくても実行時ヘッダーで設定を確認し、秘密値を返さない", async () => {
+    process.env.AUTOMATION_API_KEY = "correct-key";
+    delete process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
+    delete process.env.VERCEL_OIDC_TOKEN;
+    process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL = "reader@example-project.iam.gserviceaccount.com";
+    process.env.GOOGLE_WORKLOAD_IDENTITY_AUDIENCE = "//iam.googleapis.com/projects/123/locations/global/workloadIdentityPools/pool/providers/provider";
+    process.env.GA4_PROPERTY_ID = "123456789";
+    process.env.GSC_SITE_URL = "https://example.com/";
+    const req = request("GET", "correct-key");
+    req.headers.set("x-vercel-oidc-token", "private-runtime-token");
+    const response = await GET(req);
+    expect(response.status).toBe(200);
+    const body = await response.text();
+    expect(JSON.parse(body)).toMatchObject({ ready: true, authMode: "workload-identity" });
+    expect(body).not.toContain("private-runtime-token");
   });
 });

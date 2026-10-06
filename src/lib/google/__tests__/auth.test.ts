@@ -5,6 +5,7 @@ import {
   getGoogleAccessToken,
   GoogleConfigError,
   readGoogleConfig,
+  readGoogleRequestConfig,
 } from "../auth";
 
 const credentials = JSON.stringify({
@@ -74,8 +75,7 @@ describe("readGoogleConfig", () => {
   it("Vercel OIDCをGoogle STSで交換し、サービスアカウントの一時トークンを取得する", async () => {
     const audience =
       "//iam.googleapis.com/projects/654210782577/locations/global/workloadIdentityPools/vercel-hp-checker/providers/vercel";
-    const config = readGoogleConfig({
-      VERCEL_OIDC_TOKEN: "vercel-oidc-token-for-test",
+    const config = readGoogleRequestConfig(new Headers({ "x-vercel-oidc-token": "vercel-oidc-token-for-test" }), undefined, {
       GOOGLE_SERVICE_ACCOUNT_EMAIL:
         "hp-checker-sage@example-project.iam.gserviceaccount.com",
       GOOGLE_WORKLOAD_IDENTITY_AUDIENCE: audience,
@@ -108,5 +108,21 @@ describe("readGoogleConfig", () => {
     await expect(getGoogleAccessToken(config, now)).resolves.toBe("impersonated-token");
     await expect(getGoogleAccessToken(config, now + 60_000)).resolves.toBe("impersonated-token");
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("実行時のOIDCヘッダーを優先し、ローカルでは環境変数を代替に使う", () => {
+    const env = {
+      GOOGLE_SERVICE_ACCOUNT_EMAIL: "reader@example-project.iam.gserviceaccount.com",
+      GOOGLE_WORKLOAD_IDENTITY_AUDIENCE: "//iam.googleapis.com/projects/123/locations/global/workloadIdentityPools/pool/providers/provider",
+      GSC_SITE_URL: "https://example.com/",
+      VERCEL_OIDC_TOKEN: "local-token",
+    };
+    expect(readGoogleRequestConfig(new Headers({ "x-vercel-oidc-token": "fresh-token" }), "gsc", env).auth)
+      .toMatchObject({ kind: "workload-identity", oidcToken: "fresh-token" });
+    expect(readGoogleRequestConfig(new Headers(), "gsc", env).auth)
+      .toMatchObject({ kind: "workload-identity", oidcToken: "local-token" });
+    expect(() => readGoogleRequestConfig(new Headers(), "gsc", { ...env, VERCEL_OIDC_TOKEN: undefined }))
+      .toThrow("VERCEL_OIDC_TOKEN");
+    expect(env.VERCEL_OIDC_TOKEN).toBe("local-token");
   });
 });

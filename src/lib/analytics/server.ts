@@ -1,4 +1,4 @@
-import { readGoogleConfig, GoogleConfigError } from "@/lib/google/auth";
+import { readGoogleRequestConfig, GoogleConfigError } from "@/lib/google/auth";
 import {
   fetchGa4Events,
   fetchGa4OrganicReport,
@@ -9,9 +9,9 @@ import {
 import type { Ga4OrganicReport, GscSearchReport } from "@/lib/google/types";
 import { resolveAnalyticsRange, type AnalyticsReport, type AnalyticsSource, type SourceReport } from "./model";
 
-export function connectionStatus(source: AnalyticsSource) {
+export function connectionStatus(source: AnalyticsSource, requestHeaders?: Pick<Headers, "get">) {
   try {
-    readGoogleConfig(process.env, source);
+    readGoogleRequestConfig(requestHeaders, source);
     return { configured: true, message: "設定済み・接続は取得時に確認" };
   } catch (error) {
     return {
@@ -43,6 +43,7 @@ async function sourceReport<T>(current: () => Promise<T>, previous: () => Promis
 export async function loadAnalytics(
   input: { startDate?: string; endDate?: string; keyEvent?: string; device?: string; comparisonEndDate?: string },
   signal?: AbortSignal,
+  requestHeaders?: Pick<Headers, "get">,
 ): Promise<AnalyticsReport> {
   const ranges = resolveAnalyticsRange(input);
   const keyEvent = (input.keyEvent ?? process.env.GA4_PRIMARY_KEY_EVENT ?? "").trim();
@@ -55,9 +56,9 @@ export async function loadAnalytics(
     device: input.device && input.device !== "all" ? (input.device as AnalyticsFilters["device"]) : undefined,
   };
   const getGsc = (range: typeof ranges.dateRange) =>
-    fetchGscSearchReport(readGoogleConfig(process.env, "gsc"), range, 200, signal, options);
+    fetchGscSearchReport(readGoogleRequestConfig(requestHeaders, "gsc"), range, 200, signal, options);
   const getGa4 = async (range: typeof ranges.dateRange, events = false) => {
-    const config = readGoogleConfig(process.env, "ga4");
+    const config = readGoogleRequestConfig(requestHeaders, "ga4");
     const data = await fetchGa4OrganicReport(config, range, 200, signal, options);
     if (events) {
       try {

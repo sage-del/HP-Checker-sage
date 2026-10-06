@@ -4,7 +4,7 @@ import { fetchGa4OrganicReport, fetchGscSearchReport, GoogleApiError } from "@/l
 import { demoReport } from "../demo";
 vi.mock("@/lib/google/auth", async (importOriginal) => {
   const original = await importOriginal<typeof import("@/lib/google/auth")>();
-  return { ...original, readGoogleConfig: vi.fn(() => ({})) };
+  return { ...original, readGoogleRequestConfig: vi.fn(() => ({})) };
 });
 vi.mock("@/lib/google/client", async (importOriginal) => {
   const original = await importOriginal<typeof import("@/lib/google/client")>();

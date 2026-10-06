@@ -35,6 +35,18 @@ export class GoogleConfigError extends Error {
 
 type Environment = Readonly<Record<string, string | undefined>>;
 
+/** Vercel Functions supply fresh OIDC credentials in the request, not a build-time env value. */
+export function readGoogleRequestConfig(
+  requestHeaders: Pick<Headers, "get"> | undefined,
+  source?: "ga4" | "gsc",
+  env: Environment = process.env,
+): GoogleIntegrationConfig {
+  return readGoogleConfig({
+    ...env,
+    VERCEL_OIDC_TOKEN: requestHeaders?.get("x-vercel-oidc-token")?.trim() || env.VERCEL_OIDC_TOKEN,
+  }, source);
+}
+
 function required(env: Environment, name: string): string {
   const value = env[name]?.trim();
   if (!value) throw new GoogleConfigError(`${name} が設定されていません`);
