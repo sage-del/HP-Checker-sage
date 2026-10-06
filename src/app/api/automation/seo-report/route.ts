@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 import { FetchError } from "@/lib/analyzer";
 import { analyzeSite } from "@/lib/analyzer/site";
 import { buildSeoOpportunities, compactAudit, resolveSeoDateRange } from "@/lib/automation/report";
-import { GoogleConfigError, readGoogleConfig } from "@/lib/google/auth";
+import { GoogleConfigError, readGoogleRequestConfig } from "@/lib/google/auth";
 import { fetchGa4OrganicReport, fetchGscSearchReport, GoogleApiError } from "@/lib/google/client";
 
 export const runtime = "nodejs";
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
   const auth = authorized(request);
   if (auth !== "ok") return authError(auth);
   try {
-    const config = readGoogleConfig();
+    const config = readGoogleRequestConfig(request.headers);
     return Response.json(
       {
         ready: true,
@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const config = readGoogleConfig();
+    const config = readGoogleRequestConfig(request.headers);
     const dateRange = resolveSeoDateRange(body);
     const dataLimit = Math.min(Math.max(Math.trunc((body.limit as number | undefined) ?? 100), 10), 500);
     const filters = {

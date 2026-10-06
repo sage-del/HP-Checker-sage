@@ -63,7 +63,7 @@ Google分析画面: GSC / GA4タブ → GET /api/analytics/report → Google読�
 | API / サービス | 分類 | 用途 | 認証 | 状態 | 設定 |
 |---|---|---|---|---|---|
 | GitHub<br>sage-del/HP-Checker-sage | ソース管理 | ソースコード・README・変更履歴の保管 | GitHub認証 | 稼働中 | `main branch` |
-| Vercel<br>Hosting / Build / Cron / OIDC | 実行基盤 | Next.jsのビルド・公開、定期実行、Google向け短期OIDCトークンの発行 | GitHub連携・Vercel OIDC | 稼働中 | `VERCEL_OIDC_TOKEN（自動設定）` |
+| Vercel<br>Hosting / Build / Cron / OIDC | 実行基盤 | Next.jsのビルド・公開、定期実行、Google向け短期OIDCトークンの発行 | GitHub連携・Vercel OIDC | 稼働中 | `x-vercel-oidc-token（実行時のリクエストヘッダーから取得）`<br>`VERCEL_OIDC_TOKEN（ローカル・ビルド時の代替）`<br>`OIDC issuer mode: Team` |
 | Google Analytics Data API<br>analyticsdata.googleapis.com | 分析データ | google / organicの訪問・選択したキーイベント・セッション成果率・入口ページ・行動イベントを取得 | Google Workload Identity + サービスアカウント | 環境変数の設定待ち | `GA4_PROPERTY_ID`<br>`GA4_PRIMARY_KEY_EVENT（任意）`<br>`BASIC_AUTH_PASSWORD（本番画面で必須）`<br>`GOOGLE_SERVICE_ACCOUNT_EMAIL`<br>`GOOGLE_WORKLOAD_IDENTITY_AUDIENCE` |
 | Google Search Console API<br>searchconsole.googleapis.com | 検索データ | ウェブ検索の合計・ページ・検索語句を独立取得し、期間・デバイスをそろえて比較 | Google Workload Identity + サービスアカウント | 環境変数の設定待ち | `GSC_SITE_URL`<br>`GOOGLE_SERVICE_ACCOUNT_EMAIL`<br>`GOOGLE_WORKLOAD_IDENTITY_AUDIENCE` |
 | Google Security Token Service API<br>sts.googleapis.com | 認証 | Vercel OIDCトークンをGoogleの短期認証情報へ交換 | OIDC / OAuth 2.0 Token Exchange | 疎通確認待ち | `GOOGLE_WORKLOAD_IDENTITY_AUDIENCE` |
@@ -230,7 +230,7 @@ Google分析画面: GSC / GA4タブ → GET /api/analytics/report → Google読�
 | `ALLOW_PRIVATE_HOSTS` | 開発用 | localhost や LAN 内のサイトを診断したいときだけ `1`。**本番では絶対に設定しない** |
 | `GOOGLE_SERVICE_ACCOUNT_EMAIL` | Vercel自動化で必須 | Workload Identityから利用するサービスアカウント |
 | `GOOGLE_WORKLOAD_IDENTITY_AUDIENCE` | Vercel自動化で必須 | GoogleのWorkload Identityプロバイダ完全名 |
-| `VERCEL_OIDC_TOKEN` | Vercelが自動設定 | Vercelが実行ごとに発行する短時間のOIDCトークン。手動登録しない |
+| `VERCEL_OIDC_TOKEN` | ローカル・ビルド時の代替 | 本番の実行時は `x-vercel-oidc-token` ヘッダーを優先。トークンは手動登録しない |
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | ローカル開発用 | JSON鍵が許可される環境だけで使う代替方式。本番では不要 |
 | `GA4_PROPERTY_ID` | 自動化で必須 | GA4の数字のプロパティID（測定IDではありません） |
 | `GSC_SITE_URL` | 自動化で必須 | `sc-domain:example.com` またはURLプレフィックス |
@@ -265,7 +265,7 @@ Google分析画面: GSC / GA4タブ → GET /api/analytics/report → Google読�
 3. GA4の「管理 → プロパティのアクセス管理」で、サービスアカウントのメールアドレスを**閲覧者**として追加します。
 4. Search Consoleの「設定 → ユーザーと権限」で、同じメールアドレスを**フルユーザー**として追加します。
 5. Google CloudでVercelチームを発行元とするWorkload IdentityプールとOIDCプロバイダを作り、Vercel本番環境の`subject`だけにサービスアカウントの利用を許可します。
-6. Vercelのプロジェクト設定で次をProduction環境変数へ追加し、再デプロイします。`VERCEL_OIDC_TOKEN`はVercelが自動設定します。
+6. Vercelのプロジェクト設定で次をProduction環境変数へ追加し、再デプロイします。OIDCの発行元はTeamに設定します。本番実行時のトークンは`x-vercel-oidc-token`ヘッダーから取得し、`VERCEL_OIDC_TOKEN`を手動登録する必要はありません。
 
 ```text
 GOOGLE_SERVICE_ACCOUNT_EMAIL=hp-checker-sage@project-id.iam.gserviceaccount.com

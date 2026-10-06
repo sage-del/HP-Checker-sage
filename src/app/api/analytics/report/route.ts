@@ -28,6 +28,7 @@ export async function GET(request: NextRequest) {
         comparisonEndDate: params.get("comparisonEndDate") || undefined,
       },
       AbortSignal.any([request.signal, AbortSignal.timeout(45000)]),
+      request.headers,
     );
     return Response.json(data, { headers });
   } catch (error) {

@@ -1,4 +1,5 @@
 import { AnalyticsWorkspace } from "./AnalyticsWorkspace";
+import { headers } from "next/headers";
 import { connectionStatus } from "@/lib/analytics/server";
 import { resolveAnalyticsRange, type AnalyticsSource } from "@/lib/analytics/model";
 
@@ -11,14 +12,15 @@ export async function AnalyticsScreen({
   searchParams: AnalyticsSearchParams;
 }) {
   const params = await searchParams;
+  const requestHeaders = await headers();
   const value = (key: string) => (typeof params[key] === "string" ? (params[key] as string) : undefined);
   const defaults = resolveAnalyticsRange({}).dateRange;
   return (
     <AnalyticsWorkspace
       source={source}
       connection={{
-        gsc: connectionStatus("gsc"),
-        ga4: connectionStatus("ga4"),
+        gsc: connectionStatus("gsc", requestHeaders),
+        ga4: connectionStatus("ga4", requestHeaders),
         protected: Boolean(process.env.BASIC_AUTH_PASSWORD),
       }}
       initial={{

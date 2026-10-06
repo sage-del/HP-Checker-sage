@@ -29,7 +29,7 @@ describe("Google分析データの保護", () => {
     const response = await GET(
       new NextRequest(
         "https://example.com/api/analytics/report?keyEvent=generate_lead&device=mobile&comparisonEndDate=2026-08-31",
-        { headers: { authorization: `Basic ${Buffer.from("admin:test-password").toString("base64")}` } },
+        { headers: { authorization: `Basic ${Buffer.from("admin:test-password").toString("base64")}`, "x-vercel-oidc-token": "runtime-token" } },
       ),
     );
     expect(response.status).toBe(200);
@@ -41,6 +41,8 @@ describe("Google分析データの保護", () => {
     expect(loadAnalytics).toHaveBeenCalledWith(
       expect.objectContaining({ keyEvent: "generate_lead", device: "mobile", comparisonEndDate: "2026-08-31" }),
       expect.any(AbortSignal),
+      expect.any(Headers),
     );
+    expect(vi.mocked(loadAnalytics).mock.calls[0][2]?.get("x-vercel-oidc-token")).toBe("runtime-token");
   });
 });
