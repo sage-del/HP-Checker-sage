@@ -32,6 +32,11 @@ describe("readGoogleConfig", () => {
     expect(config.auth.credentials.private_key).toContain("\nTEST\n");
   });
 
+  it("片方だけの連携では、未設定の別プロパティを要求しない", () => {
+    expect(readGoogleConfig({ GOOGLE_SERVICE_ACCOUNT_JSON: credentials, GSC_SITE_URL: "sc-domain:example.com" }, "gsc").gscSiteUrl).toBe("sc-domain:example.com");
+    expect(readGoogleConfig({ GOOGLE_SERVICE_ACCOUNT_JSON: credentials, GA4_PROPERTY_ID: "123" }, "ga4").ga4PropertyId).toBe("123");
+  });
+
   it("不足・不正な設定は秘密値を含めずに拒否する", () => {
     expect(() => readGoogleConfig({})).toThrow(GoogleConfigError);
     expect(() =>

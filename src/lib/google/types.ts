@@ -9,15 +9,18 @@ export interface Ga4Totals {
   engagedSessions: number;
   keyEvents: number;
   engagementRate: number | null;
+  sessionKeyEventRate?: number | null;
 }
 
 export interface Ga4LandingPage {
   path: string;
+  hostname?: string;
   sessions: number;
   activeUsers: number;
   engagedSessions: number;
   keyEvents: number;
   engagementRate: number | null;
+  sessionKeyEventRate?: number | null;
 }
 
 export interface Ga4OrganicReport {
@@ -25,6 +28,10 @@ export interface Ga4OrganicReport {
   dateRange: SeoDateRange;
   totals: Ga4Totals;
   landingPages: Ga4LandingPage[];
+  keyEvent?: string;
+  eventCounts?: Array<{ name: string; count: number }>;
+  limited?: boolean;
+  dataQuality?: string[];
 }
 
 export interface GscMetricRow {
@@ -51,4 +58,5 @@ export interface GscSearchReport {
   topQueries: GscMetricRow[];
   topPages: GscMetricRow[];
   queryPages: GscQueryPageRow[];
+  limited?: boolean;
 }

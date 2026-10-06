@@ -26,6 +26,8 @@ const payload = { url };
 if (options["start-date"]) payload.startDate = options["start-date"];
 if (options["end-date"]) payload.endDate = options["end-date"];
 if (options["max-pages"]) payload.maxPages = Number(options["max-pages"]);
+if (options["key-event"]) payload.keyEvent = options["key-event"];
+if (options.device) payload.device = options.device;
 if (options.limit) payload.limit = Number(options.limit);
 
 const controller = new AbortController();

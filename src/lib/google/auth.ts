@@ -41,13 +41,13 @@ function required(env: Environment, name: string): string {
   return value;
 }
 
-export function readGoogleConfig(env: Environment = process.env): GoogleIntegrationConfig {
-  const property = required(env, "GA4_PROPERTY_ID").replace(/^properties\//, "");
-  if (!/^\d+$/.test(property)) {
+export function readGoogleConfig(env: Environment = process.env, source?: "ga4" | "gsc"): GoogleIntegrationConfig {
+  const property = (source === "gsc" ? env.GA4_PROPERTY_ID?.trim() || "" : required(env, "GA4_PROPERTY_ID")).replace(/^properties\//, "");
+  if (source !== "gsc" && !/^\d+$/.test(property)) {
     throw new GoogleConfigError("GA4_PROPERTY_ID は数字のプロパティ ID で指定してください");
   }
-  const siteUrl = required(env, "GSC_SITE_URL");
-  if (!siteUrl.startsWith("sc-domain:") && !/^https?:\/\//.test(siteUrl)) {
+  const siteUrl = source === "ga4" ? env.GSC_SITE_URL?.trim() || "" : required(env, "GSC_SITE_URL");
+  if (source !== "ga4" && !siteUrl.startsWith("sc-domain:") && !/^https?:\/\//.test(siteUrl)) {
     throw new GoogleConfigError("GSC_SITE_URL は sc-domain:example.com または完全な URL で指定してください");
   }
 
@@ -129,6 +129,7 @@ export function clearGoogleAccessToken(): void {
 export async function getGoogleAccessToken(
   config: GoogleIntegrationConfig,
   now = Date.now(),
+  signal?: AbortSignal,
 ): Promise<string> {
   const cache = tokenCache();
   const cacheKey =
@@ -140,7 +141,7 @@ export async function getGoogleAccessToken(
   }
 
   if (config.auth.kind === "workload-identity") {
-    const result = await workloadIdentityAccessToken(config.auth, now);
+    const result = await workloadIdentityAccessToken(config.auth, now, signal);
     cache.value = { key: cacheKey, token: result.token, expiresAt: result.expiresAt };
     return result.token;
   }
@@ -172,6 +173,7 @@ export async function getGoogleAccessToken(
       assertion: `${unsigned}.${signature}`,
     }),
     cache: "no-store",
+    signal,
   });
   const body = (await response.json().catch(() => null)) as
     | { access_token?: string; expires_in?: number; error_description?: string }
@@ -194,6 +196,7 @@ interface TokenResult {
 async function workloadIdentityAccessToken(
   auth: Extract<GoogleAuthSource, { kind: "workload-identity" }>,
   now: number,
+  signal?: AbortSignal,
 ): Promise<TokenResult> {
   const stsResponse = await fetch("https://sts.googleapis.com/v1/token", {
     method: "POST",
@@ -207,6 +210,7 @@ async function workloadIdentityAccessToken(
       subject_token_type: "urn:ietf:params:oauth:token-type:jwt",
     }),
     cache: "no-store",
+    signal,
   });
   const sts = (await stsResponse.json().catch(() => null)) as
     | { access_token?: string; error_description?: string }
@@ -228,6 +232,7 @@ async function workloadIdentityAccessToken(
       },
       body: JSON.stringify({ scope: GOOGLE_SCOPES, lifetime: "3600s" }),
       cache: "no-store",
+      signal,
     },
   );
   const impersonated = (await impersonationResponse.json().catch(() => null)) as

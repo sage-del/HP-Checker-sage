@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { PageTitle, Section } from "@/components/monitor/parts";
+import Link from "next/link";
+import { connectionStatus } from "@/lib/analytics/server";
 import { DevelopmentHistory } from "@/components/settings/DevelopmentHistory";
 import { Badge } from "@/components/ui";
 import { resolveMaxPages } from "@/lib/crawl/crawler";
@@ -96,6 +98,19 @@ export default async function SettingsPage() {
           </Row>
         </div>
       </Section>
+
+      <div id="google" className="scroll-mt-4">
+        <Section title="GSC・GA4連携">
+          <div className="rounded-xl border border-line bg-panel">
+            {(["gsc", "ga4"] as const).map(source => {
+              const status = connectionStatus(source);
+              return <Row key={source} label={source.toUpperCase()} status={<Badge tone={status.configured ? "info" : "warn"}>{status.configured ? "設定済み・接続未確認" : "未設定"}</Badge>}>{status.message} <Link href={`/analytics/${source}`} className="font-bold text-accent hover:underline">分析画面へ →</Link></Row>;
+            })}
+            <Row label="主要な成果">{env("GA4_PRIMARY_KEY_EVENT")} で問い合わせ送信完了などを指定できます。未設定でも分析画面からイベントを選べます。</Row>
+            <Row label="データのアクセス制限" status={<Badge tone={auth ? "pass" : "warn"}>{auth ? "有効" : "本番では設定が必要"}</Badge>}>Google分析の画面とAPIは、本番で {env("BASIC_AUTH_PASSWORD")} を設定してから利用できます。</Row>
+          </div>
+        </Section>
+      </div>
 
       <Section title="アクセス制限">
         <div className="rounded-xl border border-line bg-panel">
