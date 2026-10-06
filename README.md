@@ -51,6 +51,7 @@ npm run dev                  # http://localhost:3000
 
 ```text
 手動サイト診断: 利用者 → Next.js画面 → POST /api/site → 診断対象サイト
+自社サイトの登録: 設定の自社サイト欄 → ブラウザ内のURL保存 → サイト診断の初期URL / Codex分析依頼文
 定期監視: Vercel Cron → GET /api/cron/monitor → 診断エンジン → Postgres
 SEO自動分析: Codex → POST /api/automation/seo-report → Vercel OIDC / Google WIF → GA4 + GSC
 開発・公開: Codexクラウド環境 → GitHub main → Vercel Build → 本番ツール
