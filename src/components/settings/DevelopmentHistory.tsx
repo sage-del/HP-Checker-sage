@@ -7,7 +7,7 @@ export function DevelopmentHistory() {
   const repositoryUrl = `https://github.com/${systemArchitecture.repository.name}`;
   return (
     <div className="rounded-xl border border-line bg-panel p-5">
-      <p className="text-sm font-bold text-ink">このツールができるまで、そしてこれから</p>
+      <p className="text-sm font-bold text-ink">開発・改善の記録</p>
       <p className="mt-2 text-[13px] leading-relaxed text-muted">
         使いやすさを整える改善、不具合の修正、新しい機能の追加。その積み重ねを、制作に関わった人たちのGitHubの記録からたどれます。
         小さな見直しや試行錯誤も含めて、開発の歩みをご覧ください。
