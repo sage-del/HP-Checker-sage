@@ -5,6 +5,8 @@ import { analyzeSite } from "@/lib/analyzer/site";
 import { buildSeoOpportunities, compactAudit, resolveSeoDateRange } from "@/lib/automation/report";
 import { GoogleConfigError, readGoogleRequestConfig } from "@/lib/google/auth";
 import { fetchGa4OrganicReport, fetchGscSearchReport, GoogleApiError } from "@/lib/google/client";
+import { fetchKeywordReport } from "@/lib/keywords/client";
+import { normalizeSeed } from "@/lib/keywords/model";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -68,6 +70,7 @@ export async function POST(request: NextRequest) {
     limit?: unknown;
     keyEvent?: unknown;
     device?: unknown;
+    keywordSeeds?: unknown;
   };
   try {
     body = await request.json();
@@ -82,6 +85,18 @@ export async function POST(request: NextRequest) {
   }
   if (body.limit !== undefined && (typeof body.limit !== "number" || !Number.isFinite(body.limit))) {
     return Response.json({ error: "limit は数値で指定してください" }, { status: 400, headers: JSON_HEADERS });
+  }
+
+  let keywordSeeds: string[] = [];
+  try {
+    if (body.keywordSeeds !== undefined) {
+      if (!Array.isArray(body.keywordSeeds) || body.keywordSeeds.length > 3) {
+        throw new Error("keywordSeeds は最大3件のキーワード配列で指定してください");
+      }
+      keywordSeeds = [...new Set(body.keywordSeeds.map(normalizeSeed))];
+    }
+  } catch (error) {
+    return Response.json({ error: (error as Error).message }, { status: 400, headers: JSON_HEADERS });
   }
 
   if (
@@ -109,10 +124,11 @@ export async function POST(request: NextRequest) {
       device: body.device && body.device !== "all" ? (body.device as "desktop" | "mobile" | "tablet") : undefined,
     };
     const signal = AbortSignal.any([request.signal, AbortSignal.timeout(280000)]);
-    const [audit, ga4, gsc] = await Promise.all([
+    const [audit, ga4, gsc, keywordResearch] = await Promise.all([
       analyzeSite(body.url, { maxPages: body.maxPages as number | undefined }),
       fetchGa4OrganicReport(config, dateRange, dataLimit, signal, filters),
       fetchGscSearchReport(config, dateRange, dataLimit, signal, filters),
+      Promise.all(keywordSeeds.map((seed) => fetchKeywordReport(seed, false, signal))),
     ]);
     return Response.json(
       {
@@ -122,6 +138,7 @@ export async function POST(request: NextRequest) {
         ga4,
         gsc,
         opportunities: buildSeoOpportunities(audit, ga4, gsc),
+        ...(keywordSeeds.length ? { keywordResearch } : {}),
       },
       { headers: JSON_HEADERS },
     );

@@ -29,6 +29,12 @@ if (options["max-pages"]) payload.maxPages = Number(options["max-pages"]);
 if (options["key-event"]) payload.keyEvent = options["key-event"];
 if (options.device) payload.device = options.device;
 if (options.limit) payload.limit = Number(options.limit);
+if (options.keywords) {
+  payload.keywordSeeds = options.keywords.split(/[,、]/).map((s) => s.trim()).filter(Boolean);
+  if (payload.keywordSeeds.length > 3 || payload.keywordSeeds.some((s) => s.length > 80)) {
+    throw new Error("--keywords は80文字以内のキーワードを最大3件、カンマ区切りで指定してください");
+  }
+}
 
 const controller = new AbortController();
 const timeout = setTimeout(() => controller.abort(), 290_000);
