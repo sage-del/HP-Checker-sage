@@ -29,8 +29,8 @@ export function DiagnosisForm({
     <section className="no-print mb-8">
       <div className="pt-8 pb-6 text-center sm:pt-12">
         <h1 className="text-[28px] leading-tight font-bold tracking-tight text-ink sm:text-[34px]">
-          URL を入れるだけ。
-          <span className="block text-accent">サイト全体を無料診断</span>
+          株式会社サージュ 社内用
+          <span className="block text-accent">サイト診断・SEO改善ツール</span>
         </h1>
         <p className="mx-auto mt-3 max-w-xl text-[14px] leading-relaxed text-muted">
           {BRAND.description}
@@ -65,12 +65,12 @@ export function DiagnosisForm({
           </Field>
 
           <Button type="submit" size="lg" loading={busy} className="mt-4 w-full">
-            無料で診断する
+            サイトを診断する
           </Button>
         </form>
 
         <p className="mt-3 text-center text-[11px] leading-relaxed text-muted">
-          採点はすべてルールベース（生成 AI 不使用）のため無料です。
+          採点はルールベース（生成 AI 不使用）で行います。診断結果を社内の改善検討に活用してください。
         </p>
       </div>
 

@@ -185,7 +185,7 @@ export function MethodAppendix({
         Web Vitals）ではありません。被リンク・検索順位は含みません。JavaScript で描画される内容は取得時点の HTML に含まれない場合があります。
       </p>
       <p className="mt-1 text-[11px] text-muted">
-        診断日時: <Num>{formatDateTimeSeconds(fetchedAt)}</Num> ／ 使用ツール: {BRAND.name}（SEO・AIO 無料診断）v
+        診断日時: <Num>{formatDateTimeSeconds(fetchedAt)}</Num> ／ 使用ツール: {BRAND.name}（株式会社サージュ 社内用）v
         <Num>{version}</Num>（ルールベース）
       </p>
     </ReportSection>
@@ -202,7 +202,7 @@ export function NextSteps() {
       <div className="rounded-lg border border-line bg-surface p-4">
         <h2 className="text-[14px] font-bold text-ink">次のステップ</h2>
         <p className="mt-1 text-[13px] leading-relaxed text-ink">
-          本レポートは無料診断版です。全ページの詳細診断や改善実装のご相談は下記まで。
+          本レポートは社内のサイト改善検討に使用します。診断結果を確認し、対応方針や改善の優先順位を下記の連絡先と共有してください。
         </p>
         <p className="mt-2 text-[13px] break-all">
           {name && <span className="font-bold text-ink">{name}</span>}
