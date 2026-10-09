@@ -631,7 +631,10 @@ export function AnalyticsWorkspace({
                           );
                           return (
                             <tr key={`${q.query}|${q.page}`} className="border-b border-line">
-                              <td className="px-2 py-3 font-bold">{q.query}</td>
+                              <td className="px-2 py-3 font-bold">
+                                {q.query}
+                                <Link href={`/keywords?q=${encodeURIComponent(q.query)}`} className="mt-1 block text-xs font-normal text-accent underline">関連する検索候補を調べる</Link>
+                              </td>
                               <td className="px-2 py-3">{number(q.impressions)}</td>
                               <td className="px-2 py-3">{number(q.clicks)}</td>
                               <td className="whitespace-nowrap px-2 py-3">

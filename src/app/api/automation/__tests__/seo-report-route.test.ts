@@ -64,6 +64,14 @@ describe("/api/automation/seo-report", () => {
     expect(response.status).toBe(400);
   });
 
+  it("検索候補の不正な入力は外部APIより前に拒否する", async () => {
+    process.env.AUTOMATION_API_KEY = "correct-key";
+    for (const keywordSeeds of ["IoT", ["a", "b", "c", "d"], [""], [42]]) {
+      const response = await POST(request("POST", "correct-key", JSON.stringify({ url: "https://example.com", keywordSeeds })));
+      expect(response.status).toBe(400);
+    }
+  });
+
   it("環境変数にトークンがなくても実行時ヘッダーで設定を確認し、秘密値を返さない", async () => {
     process.env.AUTOMATION_API_KEY = "correct-key";
     delete process.env.GOOGLE_SERVICE_ACCOUNT_JSON;

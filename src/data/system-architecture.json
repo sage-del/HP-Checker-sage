@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-06",
+  "updatedAt": "2026-10-09",
   "systemName": "サイト健診（HP Checker）",
   "sourceOfTruth": "src/data/system-architecture.json",
   "repository": {
@@ -69,6 +69,17 @@
         "Google読み取り専用API",
         "入口ページ照合・改善候補",
         "ブラウザ内の改善記録 / Codex依頼文"
+      ]
+    },
+    {
+      "id": "keyword-research",
+      "title": "無料キーワード調査",
+      "description": "利用者が入力した語句でGoogle・Bingの公開検索候補を取得。追加調査は費用・導入・とはを付加。取得元と成功・候補なし・未取得を区別し、重複整理・分類の目安・CSV保存・改善依頼文を表示。GSCの実語句から移動でき、Google Trendsと検索結果は利用者が外部リンクで確認する。自動化APIはkeywordSeeds（最大3語句）の指定時のみkeywordResearchも返す。検索数・需要・順位の推計はしない。",
+      "steps": [
+        "検索候補タブ / GSC語句リンク",
+        "GET /api/keywords",
+        "Google・Bing検索候補（最大8リクエスト・最大24時間キャッシュ）",
+        "候補選択 / CSV / 改善依頼文"
       ]
     }
   ],
@@ -144,15 +155,49 @@
       "authentication": "なし（公開URLのみ）",
       "status": "active",
       "configuration": ["SITE_MAX_PAGES", "ALLOW_PRIVATE_HOSTS（開発時のみ）"]
+    },
+    {
+      "name": "Google検索候補",
+      "service": "suggestqueries.google.com",
+      "category": "キーワード調査",
+      "purpose": "日本語検索候補をAPIキーなしで取得。公開エンドポイントの変更・制限・障害は未取得として表示。検索数は取得しない。",
+      "authentication": "なし（入力語句を外部サービスに送信）",
+      "status": "active",
+      "configuration": [
+        "利用者が実行したときのみ取得",
+        "1件につき6秒タイムアウト",
+        "追加調査でも各サービス最大4件",
+        "APIキー・有料契約・新規環境変数不要"
+      ]
+    },
+    {
+      "name": "Bing検索候補",
+      "service": "api.bing.com",
+      "category": "キーワード調査",
+      "purpose": "日本語検索候補をAPIキーなしで取得。公開エンドポイントの変更・制限・障害は未取得として表示。検索数は取得しない。",
+      "authentication": "なし（入力語句を外部サービスに送信）",
+      "status": "active",
+      "configuration": [
+        "利用者が実行したときのみ取得",
+        "1件につき6秒タイムアウト",
+        "追加調査でも各サービス最大4件",
+        "APIキー・有料契約・新規環境変数不要"
+      ]
     }
   ],
   "internalApis": [
     { "method": "GET", "path": "/api/analytics/report", "purpose": "GSC・GA4を同条件で取得し、対象期間と同じ長さの前期間を比較（片方の失敗は個別表示）", "auth": "サイト全体Basic認証（本番では必須）" },
     { "method": "POST", "path": "/api/site", "purpose": "サイト全体をクロールし、進捗と診断結果を配信", "auth": "任意のサイト全体Basic認証" },
-    { "method": "POST", "path": "/api/automation/seo-report", "purpose": "技術診断・GA4・GSCを統合したSEOレポート（期間・デバイス・主要成果を指定可能）", "auth": "AUTOMATION_API_KEY（Bearer）" },
+    { "method": "POST", "path": "/api/automation/seo-report", "purpose": "技術診断・GA4・GSCを統合したSEOレポート（期間・デバイス・主要成果を指定可能、keywordSeeds指定時は無料検索候補も取得）", "auth": "AUTOMATION_API_KEY（Bearer）" },
     { "method": "GET", "path": "/api/cron/monitor", "purpose": "期限の来た監視サイトを定期診断", "auth": "CRON_SECRET（Bearer）" },
     { "method": "POST", "path": "/api/monitor/sites/[id]/run", "purpose": "指定した監視サイトを今すぐ診断", "auth": "サイト全体Basic認証" },
-    { "method": "GET", "path": "/api/monitor/alerts/unread", "purpose": "未読通知数を取得", "auth": "サイト全体Basic認証" }
+    { "method": "GET", "path": "/api/monitor/alerts/unread", "purpose": "未読通知数を取得", "auth": "サイト全体Basic認証" },
+    {
+      "method": "GET",
+      "path": "/api/keywords",
+      "purpose": "q（1〜80文字）とexpanded（任意true/false）でGoogle・Bingの検索候補を取得、重複と取得元を整理。部分失敗と空の成功を区別。固定送信先のみ使用。",
+      "auth": "任意のサイト全体Basic認証（Googleの非公開データは取得しない）"
+    }
   ],
   "maintenanceRules": [
     "外部サービス、API、認証方式、環境変数、主要データフローを変更したら、このJSONを同じ変更で更新する。",
@@ -161,7 +206,8 @@
     "APIキー、パスワード、接続文字列、JSON秘密鍵などの秘密値はJSON・README・画面へ保存しない。",
     "本番反映前にlint、typecheck、test、buildを実行し、変更した連携の疎通も確認する。",
     "Google分析画面は本番でBasic認証を必須とし、未取得・匿名化・取得上限・少ない訪問数を0や成果判定へ置き換えない。実サイトの分析と公開は利用者の依頼に従う。",
-    "開発・更新履歴は npm run history:update で生成する。公開前にコミットの件名・本文・作者名が画面に表示されることを確認する。浅いクローンでは取得できた履歴のみ表示する。"
+    "開発・更新履歴は npm run history:update で生成する。公開前にコミットの件名・本文・作者名が画面に表示されることを確認する。浅いクローンでは取得できた履歴のみ表示する。",
+    "検索候補は検索数・人気順・自社の実績として扱わない。分類は語句からの目安。無料公開エンドポイントの利用条件と応答変更を確認し、取得失敗は代替データで埋めない。"
   ],
   "reproductionSteps": [
     "GitHubのmainブランチを取得し、npm installを実行する。",

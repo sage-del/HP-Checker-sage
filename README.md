@@ -47,7 +47,7 @@ npm run dev                  # http://localhost:3000
 <!-- SYSTEM_ARCHITECTURE:START -->
 ## システム構成（自動生成）
 
-この節は `src/data/system-architecture.json` から生成しています（構成情報の更新日: 2026-10-06）。画面の「システム構成」タブも同じデータを表示します。
+この節は `src/data/system-architecture.json` から生成しています（構成情報の更新日: 2026-10-09）。画面の「システム構成」タブも同じデータを表示します。
 
 ```text
 手動サイト診断: 利用者 → Next.js画面 → POST /api/site → 診断対象サイト
@@ -57,6 +57,7 @@ SEO自動分析: Codex → POST /api/automation/seo-report → Vercel OIDC / Goo
 開発・公開: Codexクラウド環境 → GitHub main → Vercel Build → 本番ツール
 開発・更新履歴: Gitコミット履歴 → npm run history:update（prebuild / predev） → src/data/development-history.json → 設定の開発・更新履歴
 Google分析画面: GSC / GA4タブ → GET /api/analytics/report → Google読み取り専用API → 入口ページ照合・改善候補 → ブラウザ内の改善記録 / Codex依頼文
+無料キーワード調査: 検索候補タブ / GSC語句リンク → GET /api/keywords → Google・Bing検索候補（最大8リクエスト・最大24時間キャッシュ） → 候補選択 / CSV / 改善依頼文
 ```
 
 ### 連携API・サービス
@@ -71,6 +72,8 @@ Google分析画面: GSC / GA4タブ → GET /api/analytics/report → Google読�
 | IAM Service Account Credentials API<br>iamcredentials.googleapis.com | 認証 | サービスアカウントの短期アクセストークンを発行 | Workload Identity Federation | 疎通確認待ち | `GOOGLE_SERVICE_ACCOUNT_EMAIL` |
 | PostgreSQL<br>Neon / Supabase / Vercel Postgres等 | データ保存 | 定期監視サイト、診断履歴、リンク切れ、通知を保存 | 接続文字列（サーバー側のみ） | 任意機能 | `DATABASE_URL` |
 | 診断対象Webサイト<br>HTTP / HTTPS | 診断入力 | 公開HTML、robots.txt、sitemap、内部リンクを取得して診断 | なし（公開URLのみ） | 稼働中 | `SITE_MAX_PAGES`<br>`ALLOW_PRIVATE_HOSTS（開発時のみ）` |
+| Google検索候補<br>suggestqueries.google.com | キーワード調査 | 日本語検索候補をAPIキーなしで取得。公開エンドポイントの変更・制限・障害は未取得として表示。検索数は取得しない。 | なし（入力語句を外部サービスに送信） | 稼働中 | `利用者が実行したときのみ取得`<br>`1件につき6秒タイムアウト`<br>`追加調査でも各サービス最大4件`<br>`APIキー・有料契約・新規環境変数不要` |
+| Bing検索候補<br>api.bing.com | キーワード調査 | 日本語検索候補をAPIキーなしで取得。公開エンドポイントの変更・制限・障害は未取得として表示。検索数は取得しない。 | なし（入力語句を外部サービスに送信） | 稼働中 | `利用者が実行したときのみ取得`<br>`1件につき6秒タイムアウト`<br>`追加調査でも各サービス最大4件`<br>`APIキー・有料契約・新規環境変数不要` |
 
 ### 内部API
 
@@ -78,10 +81,11 @@ Google分析画面: GSC / GA4タブ → GET /api/analytics/report → Google読�
 |---|---|---|---|
 | GET | `/api/analytics/report` | GSC・GA4を同条件で取得し、対象期間と同じ長さの前期間を比較（片方の失敗は個別表示） | サイト全体Basic認証（本番では必須） |
 | POST | `/api/site` | サイト全体をクロールし、進捗と診断結果を配信 | 任意のサイト全体Basic認証 |
-| POST | `/api/automation/seo-report` | 技術診断・GA4・GSCを統合したSEOレポート（期間・デバイス・主要成果を指定可能） | AUTOMATION_API_KEY（Bearer） |
+| POST | `/api/automation/seo-report` | 技術診断・GA4・GSCを統合したSEOレポート（期間・デバイス・主要成果を指定可能、keywordSeeds指定時は無料検索候補も取得） | AUTOMATION_API_KEY（Bearer） |
 | GET | `/api/cron/monitor` | 期限の来た監視サイトを定期診断 | CRON_SECRET（Bearer） |
 | POST | `/api/monitor/sites/[id]/run` | 指定した監視サイトを今すぐ診断 | サイト全体Basic認証 |
 | GET | `/api/monitor/alerts/unread` | 未読通知数を取得 | サイト全体Basic認証 |
+| GET | `/api/keywords` | q（1〜80文字）とexpanded（任意true/false）でGoogle・Bingの検索候補を取得、重複と取得元を整理。部分失敗と空の成功を区別。固定送信先のみ使用。 | 任意のサイト全体Basic認証（Googleの非公開データは取得しない） |
 
 ### 再現手順
 
@@ -100,6 +104,7 @@ Google分析画面: GSC / GA4タブ → GET /api/analytics/report → Google読�
 - 本番反映前にlint、typecheck、test、buildを実行し、変更した連携の疎通も確認する。
 - Google分析画面は本番でBasic認証を必須とし、未取得・匿名化・取得上限・少ない訪問数を0や成果判定へ置き換えない。実サイトの分析と公開は利用者の依頼に従う。
 - 開発・更新履歴は npm run history:update で生成する。公開前にコミットの件名・本文・作者名が画面に表示されることを確認する。浅いクローンでは取得できた履歴のみ表示する。
+- 検索候補は検索数・人気順・自社の実績として扱わない。分類は語句からの目安。無料公開エンドポイントの利用条件と応答変更を確認し、取得失敗は代替データで埋めない。
 <!-- SYSTEM_ARCHITECTURE:END -->
 
 ---
@@ -301,6 +306,7 @@ Codexのクラウド環境に `HP_CHECKER_BASE_URL`、`HP_CHECKER_API_KEY`、必
 ```bash
 npm run seo:report -- --url "https://www.example.com"
 npm run seo:report -- --url "https://www.example.com" --start-date 2026-09-01 --end-date 2026-09-30 --device mobile --key-event generate_lead
+npm run seo:report -- --url "https://www.example.com" --keywords "バッテリー監視,非常用電源 遠隔監視"
 ```
 
 リポジトリの `AGENTS.md` にこの手順を記載しているため、Codexへ「example.comのSEOレポートを作成して」と指示すると、このAPIを使う前提で作業します。

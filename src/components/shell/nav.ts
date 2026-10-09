@@ -27,6 +27,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
   {
     label: "SEO改善",
     items: [
+      { href: "/keywords", label: "検索候補 · キーワード調査", icon: "links" },
       { href: "/analytics/gsc", label: "GSC · 検索の改善", icon: "diagnose" },
       { href: "/analytics/ga4", label: "GA4 · 訪問と成果", icon: "dashboard" },
     ],
