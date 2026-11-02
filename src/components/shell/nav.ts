@@ -33,7 +33,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     ],
   },
   {
-    label: "定期監視",
+    label: "診断記録",
     items: [
       { href: "/monitor", label: "ダッシュボード", icon: "dashboard", alsoActive: ["/monitor/sites/"] },
       { href: "/monitor/new", label: "サイト追加", icon: "add" },
