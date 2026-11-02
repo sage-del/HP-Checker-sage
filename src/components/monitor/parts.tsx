@@ -82,11 +82,11 @@ export function Section({ title, children, aside }: { title: ReactNode; children
 export function NotConfigured() {
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-8 md:px-8">
-      <PageTitle title="定期監視" lead="監視サイト・リンク切れ・診断履歴・通知の画面は、保存先を設定すると使えます。" />
+      <PageTitle title="診断履歴の保存" lead="監視サイト・リンク切れ・診断履歴・通知の画面は、保存先を設定すると使えます。" />
       <Callout tone="info" title="監視機能はまだ設定されていません">
         <p>
           診断結果を保存する Postgres の接続文字列を環境変数 <code>DATABASE_URL</code> に設定すると使えるようになります。
-          設定の状態はサイドバーの「設定」で確認できます。手順は README の「定期監視」を見てください。
+          設定の状態はサイドバーの「設定」で確認できます。手順は README の「手動診断と履歴の保存」を見てください。
         </p>
       </Callout>
     </main>

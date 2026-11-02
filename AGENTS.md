@@ -10,6 +10,10 @@ When the user asks for an SEO report or SEO improvement priorities, use the depl
 5. Prioritize issues supported by both search demand (GSC) and technical audit evidence. Use GA4 engagement to refine the order.
 6. Do not modify a diagnosed website's repository unless the user has authorized changes to that repository.
 
+## Human-reviewed manual operation
+
+Do not add or re-enable GitHub Actions, scheduled jobs, autonomous agents, automatic content changes, automatic publication, or automatic rollback. Run diagnosis and analytics only when requested by a person. Preserve manual diagnosis and existing records. Review concrete changes with the user before publication unless the user has already explicitly authorized that specific publication. Git-based automatic deployment must stay disabled after the removal release; use an explicitly approved manual deployment.
+
 ## System architecture documentation
 
 `src/data/system-architecture.json` is the single source of truth for the system diagram, integrations, internal APIs, reproduction steps, and maintenance rules. The `/system` screen reads it directly, and the README section is generated from it.

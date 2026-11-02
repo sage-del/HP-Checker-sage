@@ -2,7 +2,7 @@
 
 URL を入れるだけで、検索エンジンと AI 検索（AIO）に読まれる土台をルールベースで採点する Next.js アプリです。総合スコアと改善提案を報告書にまとめ、PDF で持ち帰れます。
 
-基本のサイト診断は **API キーもログインも不要**で、そのまま公開して使えます。生成 AI は使いません。GA4・Search Console連携と定期監視は任意機能で、設定しなければ基本診断だけが動きます。
+基本のサイト診断は **API キーもログインも不要**で、そのまま公開して使えます。生成 AI は使いません。GA4・Search Console連携と手動診断の履歴保存は任意機能で、設定しなければ基本診断だけが動きます。
 
 ```bash
 npm install
@@ -29,7 +29,7 @@ npm run dev                  # http://localhost:3000
 | 診断履歴 | `/monitor/runs` | 全サイトの診断の記録（サイト・結果で絞り込み） |
 | 通知 | `/monitor/alerts` | ツール内の通知（未読 / すべて）。タブに未読数のバッジ |
 | システム構成 | `/system` | 構成図、連携API・サービス、内部API、再現手順、更新ルール |
-| 設定 | `/settings` | 保存先の接続・ログイン・Cron・上限などの状態（値そのものは表示しない） |
+| 設定 | `/settings` | 保存先の接続・ログイン・手動診断・上限などの状態（値そのものは表示しない） |
 
 | パス | 内容 |
 |---|---|
@@ -38,7 +38,6 @@ npm run dev                  # http://localhost:3000
 | `/monitor/runs/[id]` | 保存した 1 回分の診断レポート（前回との比較つき） |
 | `/api/monitor/sites/[id]/run` | 監視サイトを今すぐ診断して記録する |
 | `/api/monitor/alerts/unread` | 未読の通知数（サイドバーの「通知」タブのバッジ） |
-| `/api/cron/monitor` | 定期診断（Vercel Cron が呼ぶ） |
 | `/api/analytics/report` | Google分析画面の読み取り専用API（本番ではBasic認証必須） |
 | `/api/automation/seo-report` | サイト診断・GA4・GSCを統合するCodex向けAPI（Bearer認証） |
 
@@ -47,15 +46,15 @@ npm run dev                  # http://localhost:3000
 <!-- SYSTEM_ARCHITECTURE:START -->
 ## システム構成（自動生成）
 
-この節は `src/data/system-architecture.json` から生成しています（構成情報の更新日: 2026-10-09）。画面の「システム構成」タブも同じデータを表示します。
+この節は `src/data/system-architecture.json` から生成しています（構成情報の更新日: 2026-11-02）。画面の「システム構成」タブも同じデータを表示します。
 
 ```text
 手動サイト診断: 利用者 → Next.js画面 → POST /api/site → 診断対象サイト
 自社サイトの登録: 設定の自社サイト欄 → ブラウザ内のURL保存 → サイト診断の初期URL / Codex分析依頼文
-定期監視: Vercel Cron → GET /api/cron/monitor → 診断エンジン → Postgres
-SEO自動分析: Codex → POST /api/automation/seo-report → Vercel OIDC / Google WIF → GA4 + GSC
-開発・公開: Codexクラウド環境 → GitHub main → Vercel Build → 本番ツール
-開発・更新履歴: Gitコミット履歴 → npm run history:update（prebuild / predev） → src/data/development-history.json → 設定の開発・更新履歴
+手動診断と履歴の保存: 利用者の実行指示 → POST /api/monitor/sites/[id]/run → 診断エンジン → Postgres
+依頼時のSEO分析: 利用者の依頼 → Codex → POST /api/automation/seo-report → GA4 + GSC → 人による結果・修正案の確認
+開発・公開: 編集・ローカル検証 → 人の確認 → 承認されたGitコミット → Vercelの手動デプロイ
+開発・更新履歴: 担当者がnpm run history:updateを実行 → Gitコミット履歴 → src/data/development-history.json → 設定の開発・更新履歴
 Google分析画面: GSC / GA4タブ → GET /api/analytics/report → Google読み取り専用API → 入口ページ照合・改善候補 → ブラウザ内の改善記録 / Codex依頼文
 無料キーワード調査: 検索候補タブ / GSC語句リンク → GET /api/keywords → Google・Bing検索候補（最大8リクエスト・最大24時間キャッシュ） → 候補選択 / CSV / 改善依頼文
 ```
@@ -65,12 +64,12 @@ Google分析画面: GSC / GA4タブ → GET /api/analytics/report → Google読�
 | API / サービス | 分類 | 用途 | 認証 | 状態 | 設定 |
 |---|---|---|---|---|---|
 | GitHub<br>sage-del/HP-Checker-sage | ソース管理 | ソースコード・README・変更履歴の保管 | GitHub認証 | 稼働中 | `main branch` |
-| Vercel<br>Hosting / Build / Cron / OIDC | 実行基盤 | Next.jsのビルド・公開、定期実行、Google向け短期OIDCトークンの発行 | GitHub連携・Vercel OIDC | 稼働中 | `x-vercel-oidc-token（実行時のリクエストヘッダーから取得）`<br>`VERCEL_OIDC_TOKEN（ローカル・ビルド時の代替）`<br>`OIDC issuer mode: Team` |
+| Vercel<br>Hosting / Manual Build / OIDC | 実行基盤 | 人が承認したビルドの手動公開と、依頼時のGoogle向け短期OIDCトークン発行 | GitHub連携・Vercel OIDC | 稼働中 | `x-vercel-oidc-token（実行時のリクエストヘッダーから取得）`<br>`VERCEL_OIDC_TOKEN（ローカル・ビルド時の代替）`<br>`OIDC issuer mode: Team`<br>`git.deploymentEnabled=false / crons=[]（自動実行・自動公開を再開しない）` |
 | Google Analytics Data API<br>analyticsdata.googleapis.com | 分析データ | google / organicの訪問・選択したキーイベント・セッション成果率・入口ページ・行動イベントを取得 | Google Workload Identity + サービスアカウント | 環境変数の設定待ち | `GA4_PROPERTY_ID`<br>`GA4_PRIMARY_KEY_EVENT（任意）`<br>`BASIC_AUTH_PASSWORD（本番画面で必須）`<br>`GOOGLE_SERVICE_ACCOUNT_EMAIL`<br>`GOOGLE_WORKLOAD_IDENTITY_AUDIENCE` |
 | Google Search Console API<br>searchconsole.googleapis.com | 検索データ | ウェブ検索の合計・ページ・検索語句を独立取得し、期間・デバイスをそろえて比較 | Google Workload Identity + サービスアカウント | 環境変数の設定待ち | `GSC_SITE_URL`<br>`GOOGLE_SERVICE_ACCOUNT_EMAIL`<br>`GOOGLE_WORKLOAD_IDENTITY_AUDIENCE` |
 | Google Security Token Service API<br>sts.googleapis.com | 認証 | Vercel OIDCトークンをGoogleの短期認証情報へ交換 | OIDC / OAuth 2.0 Token Exchange | 疎通確認待ち | `GOOGLE_WORKLOAD_IDENTITY_AUDIENCE` |
 | IAM Service Account Credentials API<br>iamcredentials.googleapis.com | 認証 | サービスアカウントの短期アクセストークンを発行 | Workload Identity Federation | 疎通確認待ち | `GOOGLE_SERVICE_ACCOUNT_EMAIL` |
-| PostgreSQL<br>Neon / Supabase / Vercel Postgres等 | データ保存 | 定期監視サイト、診断履歴、リンク切れ、通知を保存 | 接続文字列（サーバー側のみ） | 任意機能 | `DATABASE_URL` |
+| PostgreSQL<br>Neon / Supabase / Vercel Postgres等 | データ保存 | 手動診断の登録サイト、診断履歴、リンク切れ、通知を保存 | 接続文字列（サーバー側のみ） | 任意機能 | `DATABASE_URL` |
 | 診断対象Webサイト<br>HTTP / HTTPS | 診断入力 | 公開HTML、robots.txt、sitemap、内部リンクを取得して診断 | なし（公開URLのみ） | 稼働中 | `SITE_MAX_PAGES`<br>`ALLOW_PRIVATE_HOSTS（開発時のみ）` |
 | Google検索候補<br>suggestqueries.google.com | キーワード調査 | 日本語検索候補をAPIキーなしで取得。公開エンドポイントの変更・制限・障害は未取得として表示。検索数は取得しない。 | なし（入力語句を外部サービスに送信） | 稼働中 | `利用者が実行したときのみ取得`<br>`1件につき6秒タイムアウト`<br>`追加調査でも各サービス最大4件`<br>`APIキー・有料契約・新規環境変数不要` |
 | Bing検索候補<br>api.bing.com | キーワード調査 | 日本語検索候補をAPIキーなしで取得。公開エンドポイントの変更・制限・障害は未取得として表示。検索数は取得しない。 | なし（入力語句を外部サービスに送信） | 稼働中 | `利用者が実行したときのみ取得`<br>`1件につき6秒タイムアウト`<br>`追加調査でも各サービス最大4件`<br>`APIキー・有料契約・新規環境変数不要` |
@@ -82,7 +81,6 @@ Google分析画面: GSC / GA4タブ → GET /api/analytics/report → Google読�
 | GET | `/api/analytics/report` | GSC・GA4を同条件で取得し、対象期間と同じ長さの前期間を比較（片方の失敗は個別表示） | サイト全体Basic認証（本番では必須） |
 | POST | `/api/site` | サイト全体をクロールし、進捗と診断結果を配信 | 任意のサイト全体Basic認証 |
 | POST | `/api/automation/seo-report` | 技術診断・GA4・GSCを統合したSEOレポート（期間・デバイス・主要成果を指定可能、keywordSeeds指定時は無料検索候補も取得） | AUTOMATION_API_KEY（Bearer） |
-| GET | `/api/cron/monitor` | 期限の来た監視サイトを定期診断 | CRON_SECRET（Bearer） |
 | POST | `/api/monitor/sites/[id]/run` | 指定した監視サイトを今すぐ診断 | サイト全体Basic認証 |
 | GET | `/api/monitor/alerts/unread` | 未読通知数を取得 | サイト全体Basic認証 |
 | GET | `/api/keywords` | q（1〜80文字）とexpanded（任意true/false）でGoogle・Bingの検索候補を取得、重複と取得元を整理。部分失敗と空の成功を区別。固定送信先のみ使用。 | 任意のサイト全体Basic認証（Googleの非公開データは取得しない） |
@@ -93,7 +91,7 @@ Google分析画面: GSC / GA4タブ → GET /api/analytics/report → Google読�
 2. .env.exampleを.env.localへコピーし、使う機能の環境変数だけを設定する。
 3. GA4/GSC連携ではGoogle API、サービスアカウント、Workload Identity、各プロパティ権限を設定する。
 4. npm run docs:system:check、npm run lint、npm run typecheck、npm test、npm run buildで検証する。
-5. GitHub mainとVercelを接続し、本番用環境変数を設定してデプロイする。
+5. 本番用環境変数を設定し、人が変更・検証結果を確認した後で手動デプロイする。Git自動デプロイとCronは有効にしない。
 
 ### 更新ルール
 
@@ -103,8 +101,9 @@ Google分析画面: GSC / GA4タブ → GET /api/analytics/report → Google読�
 - APIキー、パスワード、接続文字列、JSON秘密鍵などの秘密値はJSON・README・画面へ保存しない。
 - 本番反映前にlint、typecheck、test、buildを実行し、変更した連携の疎通も確認する。
 - Google分析画面は本番でBasic認証を必須とし、未取得・匿名化・取得上限・少ない訪問数を0や成果判定へ置き換えない。実サイトの分析と公開は利用者の依頼に従う。
-- 開発・更新履歴は npm run history:update で生成する。公開前にコミットの件名・本文・作者名が画面に表示されることを確認する。浅いクローンでは取得できた履歴のみ表示する。
+- 開発・更新履歴は npm run history:update で生成する。自動起動フックは使わず、公開前にコミットの件名・本文・作者名が画面に表示されることを確認する。浅いクローンでは取得できた履歴のみ表示する。
 - 検索候補は検索数・人気順・自社の実績として扱わない。分類は語句からの目安。無料公開エンドポイントの利用条件と応答変更を確認し、取得失敗は代替データで埋めない。
+- GitHub Actions・Cron・無人の変更/公開/ロールバックを追加しない。診断は人の指示時に実行し、変更と公開は人が具体的な結果を確認してから行う。
 <!-- SYSTEM_ARCHITECTURE:END -->
 
 ---
@@ -178,9 +177,15 @@ Google分析画面: GSC / GA4タブ → GET /api/analytics/report → Google読�
 
 ---
 
-## 定期監視（`/monitor`）
+## 手動診断と履歴の保存（`/monitor`）
 
-登録したサイトを決まった頻度（毎日 / 毎週）で自動診断し、**前回より悪くなったときにツール内で通知**します。Slack やメールなどの外部サービスには送りません。サイドバーの「通知」タブに未読の数が出ます。
+登録だけでは診断を開始しません。利用者が「今すぐ診断」を押したときだけ診断し、結果・内部リンク切れ・前回比較・通知をPostgresへ保存します。過去の診断記録は保持し、旧定期実行の記録は「旧・定期」として表示します。通知はツール内だけで、メールやSlackには送りません。
+
+2026年11月2日の依頼で、Vercel Cron設定、定期実行API、スケジューラー、毎日/毎週の選択、停止/再開操作、Cron認証、ビルド/開発時の履歴自動更新を削除しました。廃止URLへのリクエストは410を返し、診断を開始しません。自動実行を再開しないでください。
+
+履歴の保存には`DATABASE_URL`と`BASIC_AUTH_PASSWORD`が必要です。保存先未設定でも通常の手動サイト診断は利用できます。保存済みレポートはサイトごとに直近20回、要約は400回まで保持します。旧スケジュール用のDB列は互換性のため残しますが、移行時に無効にし、操作画面・APIには公開しません。
+
+Gitによる自動公開は無効にし、人が変更と検証結果を確認したコミットを手動公開してください。開発・更新履歴の生成も`npm run history:update`を明示的に実行します。
 
 ### 通知の出し方
 
@@ -194,7 +199,7 @@ Google分析画面: GSC / GA4タブ → GET /api/analytics/report → Google読�
 
 ### リンク切れの検出
 
-定期監視の診断では、採点に加えて**サイト内のリンク切れ**（ページへのリンク・画像・CSS・JavaScript）を確かめます（`src/lib/links/`）。
+登録サイトの手動診断では、採点に加えて**サイト内のリンク切れ**（ページへのリンク・画像・CSS・JavaScript）を確かめます（`src/lib/links/`）。
 
 - 対象は同じサイト内の参照だけです。外部サイトへのリンクは確かめません
 - クロールで取得済みのページはそのステータスを使い、それ以外（画像・PDF・上限で取得しなかったページなど）に HEAD を送ります（受け付けないサーバーには GET）。1 回あたり 300 件・45 秒まで
@@ -205,22 +210,6 @@ Google分析画面: GSC / GA4タブ → GET /api/analytics/report → Google読�
 
 保存先は Postgres です（`DATABASE_URL`。テーブルは初回に自動で作ります）。診断レポート本体はサイトごとに直近 20 回分だけ残し、それより古い回はスコアの推移に使う要約だけにします。要約は 400 回分（毎日で 1 年強）まで残します。
 
-### 定期実行のしくみ
-
-`vercel.json` の Cron が毎日 18:00 UTC（日本時間 3:00）に `/api/cron/monitor` を呼びます。期限の来たサイトを、最後の診断が古い順に 1 つずつ診断し、1 回の呼び出し（最大 300 秒）で終わらなかったサイトは次の呼び出しに回します。登録サイトが多い・大きいサイトがある場合は、Vercel Pro で Cron を 1 時間ごと（`0 * * * *`）にすると取り残しが減ります（Hobby プランの Cron は 1 日 1 回まで）。
-
-### セットアップ（Vercel）
-
-1. Postgres を用意する（Vercel の Storage から Neon を追加する、または Supabase の接続文字列を使う）
-2. Vercel の環境変数に `DATABASE_URL`・`BASIC_AUTH_PASSWORD`・`CRON_SECRET` を設定する
-3. デプロイし、`/monitor` からサイトを登録する。「今すぐ診断」で 1 回目を取っておくと、翌日から前回比較の通知が出ます
-
-### アクセス制限
-
-`BASIC_AUTH_PASSWORD` を設定すると**サイト全体**に Basic 認証が掛かります（`src/proxy.ts`。ユーザー名は `BASIC_AUTH_USER`、既定 `admin`）。監視機能を本番で有効にしているのにパスワードが無いときは、診断の記録を誰でも見られる状態にしないよう `/monitor` と `/api/monitor` を 503 で止めます。`/api/cron/*` は Basic 認証の対象外で、`CRON_SECRET` で呼び出し元を確かめます。
-
----
-
 ## 環境変数
 
 `.env.example` を `.env.local` にコピーして設定します。キーはすべてサーバー側でのみ読み、ブラウザには渡しません（`NEXT_PUBLIC_` の付いたものを除く）。
@@ -230,9 +219,8 @@ Google分析画面: GSC / GA4タブ → GET /api/analytics/report → Google読�
 | `SITE_MAX_PAGES` | 任意 | 1 回の診断で見るページ数の上限（既定・最大とも 100） |
 | `NEXT_PUBLIC_APP_VERSION` | 任意 | フッターのバージョン表記 |
 | `NEXT_PUBLIC_CONTACT_NAME` / `NEXT_PUBLIC_CONTACT_URL` | 任意 | レポート末尾「次のステップ」に出す運営元の連絡先 |
-| `DATABASE_URL` | 監視で必須 | 定期監視の保存先（Postgres の接続文字列）。未設定なら監視機能は出ない |
+| `DATABASE_URL` | 監視で必須 | 手動診断の履歴保存先（Postgres の接続文字列）。未設定なら監視機能は出ない |
 | `BASIC_AUTH_USER` / `BASIC_AUTH_PASSWORD` | 監視・Google分析画面の本番利用で必須 | サイト全体の Basic 認証（ユーザー名の既定は `admin`） |
-| `CRON_SECRET` | 監視で必須 | Vercel Cron の呼び出しを確かめる合言葉。本番で未設定だと定期診断は動かない |
 | `ALLOW_PRIVATE_HOSTS` | 開発用 | localhost や LAN 内のサイトを診断したいときだけ `1`。**本番では絶対に設定しない** |
 | `GOOGLE_SERVICE_ACCOUNT_EMAIL` | Vercel自動化で必須 | Workload Identityから利用するサービスアカウント |
 | `GOOGLE_WORKLOAD_IDENTITY_AUDIENCE` | Vercel自動化で必須 | GoogleのWorkload Identityプロバイダ完全名 |
@@ -248,7 +236,7 @@ Google分析画面: GSC / GA4タブ → GET /api/analytics/report → Google読�
 
 ---
 
-## GA4・Search Console・Codex 自動化
+## GA4・Search Console・依頼時のCodex分析
 
 自社サイトだけを無人実行する用途では、Googleのサービスアカウントを使います。Vercel本番環境ではWorkload Identity連携を使用し、長期間有効なJSON秘密鍵は保存しません。利用者のGoogleログイン操作は不要です。手動診断の画面と `/api/site` は、Google連携を設定しなくても従来どおり動きます。
 
@@ -349,14 +337,14 @@ src/
   app/
     page.tsx            # サイト診断（SEO・AIO）
     api/site/           # サイト診断（Route Handler、nodejs runtime）
-    monitor/            # 定期監視の画面（ダッシュボード・サイト追加・リンク切れ・診断履歴・通知）とサーバーアクション
+    monitor/            # 手動診断の履歴画面（ダッシュボード・サイト追加・リンク切れ・診断履歴・通知）とサーバーアクション
     system/             # システム構成・連携API・再現手順（構成JSONを表示）
     settings/           # 設定の確認画面
-    api/monitor/ api/cron/monitor/  # 今すぐ診断・未読数・定期診断
+    api/monitor/  # 今すぐ診断・未読数
   proxy.ts              # Basic 認証（旧 middleware）
   components/
     free/               # 診断の画面とレポート
-    monitor/            # 定期監視の画面部品（今すぐ診断・集計カードなど）
+    monitor/            # 手動診断の履歴画面部品（今すぐ診断・集計カードなど）
     ui/ charts/ shell/  # 共通部品・依存なしの SVG グラフ・シェル（サイドバー / フッター）
   lib/
     analyzer/           # 判定ルール（fetch.ts の assertPublicHost + fetchText が唯一の取得経路）
@@ -364,7 +352,7 @@ src/
     report/             # レポートの導出（グレード・講評・優先改善）
     pdf/                # レポートの PDF 化（html2canvas + jsPDF）
     links/              # リンク切れの検出（参照の抽出・ステータス確認）
-    monitor/            # 定期監視（保存・スケジュール・通知の導出・認証）
+    monitor/            # 手動診断の保存・前回比較・認証
     system/             # 構成JSONの型と表示用ラベル
     brand.ts            # サービスの呼び名（唯一の定義）
     ui/                 # 色トークンの単一定義（palette.ts / grade.ts）

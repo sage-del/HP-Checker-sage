@@ -27,7 +27,7 @@ describe.skipIf(!url)("postgres driver", () => {
   it("stores jsonb as objects, not JSON strings", async () => {
     await sql.unsafe(`drop table if exists monitor_alerts, monitor_runs, monitor_sites cascade`);
     await migrate(db);
-    const site = await addSite(db, { url: "https://example.com/", name: "x", frequency: "daily" });
+    const site = await addSite(db, { url: "https://example.com/", name: "x" });
     const result = fakeResult({
       links: { found: 1, checked: 1, unchecked: 0, durationMs: 1, broken: [{ url: "https://example.com/gone", status: 404, kind: "link", sources: [], sourceCount: 1 }] },
     });

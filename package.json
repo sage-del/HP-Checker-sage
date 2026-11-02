@@ -13,9 +13,7 @@
     "pretest": "npm run docs:system:check",
     "test": "vitest run",
     "seo:report": "node scripts/seo-report.mjs",
-    "history:update": "node scripts/update-development-history.mjs",
-    "prebuild": "npm run history:update",
-    "predev": "npm run history:update"
+    "history:update": "node scripts/update-development-history.mjs"
   },
   "dependencies": {
     "@mozilla/readability": "^0.6.0",

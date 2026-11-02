@@ -10,10 +10,8 @@ import { resolveMaxPages } from "@/lib/crawl/crawler";
 import { MAX_LINK_CHECKS } from "@/lib/links/check";
 import { SCORE_DROP_ALERT } from "@/lib/monitor/alerts";
 import { getDb, isMonitorConfigured } from "@/lib/monitor/db";
-import { describeCronJst } from "@/lib/monitor/schedule";
 import { KEEP_FULL_RESULTS, KEEP_RUNS, listSites } from "@/lib/monitor/store";
 import pkg from "../../../package.json";
-import vercel from "../../../vercel.json";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "設定" };
@@ -44,14 +42,12 @@ const env = (name: string) => <code className="rounded bg-surface px-1 py-0.5 te
 
 /**
  * 設定の確認画面。環境変数は「設定済みか」だけを出し、値（パスワード・接続文字列）は出さない。
- * 値の変更は Vercel の環境変数で行う（README の「定期監視」）。
+ * 値の変更は Vercel の環境変数で行う（README の「手動診断と履歴の保存」）。
  */
 export default async function SettingsPage() {
   const monitor = isMonitorConfigured();
   const db = monitor ? await checkDatabase() : null;
   const auth = Boolean(process.env.BASIC_AUTH_PASSWORD);
-  const cronSecret = Boolean(process.env.CRON_SECRET);
-  const schedule = vercel.crons?.[0]?.schedule;
   const contact = process.env.NEXT_PUBLIC_CONTACT_NAME || process.env.NEXT_PUBLIC_CONTACT_URL;
 
   return (
@@ -69,7 +65,7 @@ export default async function SettingsPage() {
         <DevelopmentHistory />
       </Section>
 
-      <Section title="定期監視">
+      <Section title="手動診断と履歴の保存">
         <div className="rounded-xl border border-line bg-panel">
           <Row
             label="保存先（データベース）"
@@ -84,16 +80,13 @@ export default async function SettingsPage() {
             }
           >
             {!monitor
-              ? <>{env("DATABASE_URL")} に Postgres の接続文字列を設定すると、定期監視が使えるようになります。</>
+              ? <>{env("DATABASE_URL")} に Postgres の接続文字列を設定すると、手動診断の履歴を保存できるようになります。</>
               : db?.ok
                 ? `監視サイト ${db.sites} 件を登録しています。`
                 : db?.error}
           </Row>
-          <Row label="定期診断の時刻" status={schedule ? <Badge tone="info">{describeCronJst(schedule)}</Badge> : <Badge tone="warn">未設定</Badge>}>
-            vercel.json の Cron で決めています。期限の来たサイトを、最後の診断が古い順に診断します。
-          </Row>
-          <Row label="Cron の合言葉" status={cronSecret ? <Badge tone="pass">設定済み</Badge> : <Badge tone="fail">未設定</Badge>}>
-            {env("CRON_SECRET")}。未設定のままだと本番では定期診断が動きません。
+          <Row label="診断の実行" status={<Badge tone="info">手動のみ</Badge>}>
+            登録サイトの「今すぐ診断」から実行します。登録だけでは診断は始まりません。
           </Row>
           <Row label="通知の条件">
             診断できなくなった・重大な問題やリンク切れが新たに出た（重大）、総合スコアが {SCORE_DROP_ALERT} 点以上下がった・警告が新たに出た（警告）、改善・復旧した（お知らせ）。
@@ -125,7 +118,7 @@ export default async function SettingsPage() {
             ) : (
               <>
                 {env("BASIC_AUTH_PASSWORD")} を設定するとサイト全体にログインが必要になります。
-                {monitor && "定期監視を使うときは必須です（未設定だと本番では監視の画面が開けません）。"}
+                {monitor && "診断履歴の保存を使うときは必須です（未設定だと本番では監視の画面が開けません）。"}
               </>
             )}
           </Row>
@@ -135,7 +128,7 @@ export default async function SettingsPage() {
       <Section title="診断">
         <div className="rounded-xl border border-line bg-panel">
           <Row label="1 回で見るページ数">最大 {resolveMaxPages()} ページ（{env("SITE_MAX_PAGES")} で 100 以下に変更できます）。</Row>
-          <Row label="リンク切れの確認">同じサイト内の参照先を 1 回あたり最大 {MAX_LINK_CHECKS} 件（定期監視の診断のみ）。</Row>
+          <Row label="リンク切れの確認">同じサイト内の参照先を 1 回あたり最大 {MAX_LINK_CHECKS} 件（登録サイトの手動診断のみ）。</Row>
           <Row label="レポート末尾の連絡先" status={contact ? <Badge tone="pass">設定済み</Badge> : <Badge tone="info">なし</Badge>}>
             {env("NEXT_PUBLIC_CONTACT_NAME")} / {env("NEXT_PUBLIC_CONTACT_URL")}
           </Row>

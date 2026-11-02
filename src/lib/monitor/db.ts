@@ -27,10 +27,14 @@ create table if not exists monitor_sites (
   url text not null unique,
   name text not null,
   frequency text not null default 'daily' check (frequency in ('daily', 'weekly')),
-  enabled boolean not null default true,
+  enabled boolean not null default false,
   created_at timestamptz not null default now(),
   last_run_at timestamptz
 );
+
+-- Legacy scheduling fields are retained only for database compatibility.
+alter table monitor_sites alter column enabled set default false;
+update monitor_sites set enabled = false where enabled = true;
 
 create table if not exists monitor_runs (
   id integer generated always as identity primary key,

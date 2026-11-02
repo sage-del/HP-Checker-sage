@@ -4,14 +4,13 @@ import { AlertList, NotConfigured, PageTitle, RunStatusBadge, ScoreWithDelta, Se
 import { RunNowButton } from "@/components/monitor/RunNowButton";
 import { getDb, isMonitorConfigured } from "@/lib/monitor/db";
 import { formatAgo, formatJst } from "@/lib/monitor/format";
-import { FREQUENCY_LABEL } from "@/lib/monitor/schedule";
 import { countUnreadAlerts, listAlerts, listSiteOverviews } from "@/lib/monitor/store";
 import { scoreTone } from "@/lib/ui/palette";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "ダッシュボード" };
 
-/** 定期監視のダッシュボード: 全体の集計・監視サイトの一覧・未読の通知 */
+/** 手動診断のダッシュボード: 全体の集計・監視サイトの一覧・未読の通知 */
 export default async function MonitorDashboard() {
   if (!isMonitorConfigured()) return <NotConfigured />;
   const db = await getDb();
@@ -33,7 +32,7 @@ export default async function MonitorDashboard() {
     <main className="mx-auto w-full max-w-5xl px-4 py-8 md:px-8">
       <PageTitle
         title="ダッシュボード"
-        lead="登録したサイトを決まった頻度で自動診断し、前回より悪くなったときにツール内で通知します。"
+        lead="登録したサイトは「今すぐ診断」を押したときだけ診断します。結果・前回比較・通知を確認できます。"
         actions={
           <Link
             href="/monitor/new"
@@ -46,7 +45,7 @@ export default async function MonitorDashboard() {
 
       <StatCards
         items={[
-          { label: "監視サイト", value: sites.length, hint: `停止中 ${sites.filter((s) => !s.enabled).length} 件` },
+          { label: "登録サイト", value: sites.length, hint: "手動で診断" },
           {
             label: "平均スコア",
             value: average ?? "-",
@@ -80,16 +79,14 @@ export default async function MonitorDashboard() {
                         {s.name}
                       </Link>
                       <RunStatusBadge run={s.latest} />
-                      {!s.enabled && <span className="rounded-full bg-surface px-2 py-0.5 text-[11px] font-bold text-muted">停止中</span>}
                       {s.unreadAlerts > 0 && <span className="text-[12px] font-bold text-fail">未読の通知 {s.unreadAlerts} 件</span>}
                     </div>
                     <p className="mt-0.5 break-all text-[12px] text-muted">{s.url}</p>
                     <p className="mt-2 text-[12px] text-muted">
-                      {FREQUENCY_LABEL[s.frequency]}診断 ·{" "}
                       {s.latest ? (
                         <span title={formatJst(s.latest.finishedAt)}>最終診断 {formatAgo(s.latest.finishedAt, now)}</span>
                       ) : (
-                        "次の定期診断を待っています"
+                        "「今すぐ診断」から実行できます"
                       )}
                       {s.latest?.status === "success" && s.latest.brokenCount ? (
                         <span className="font-bold text-fail"> · リンク切れ {s.latest.brokenCount} 件</span>

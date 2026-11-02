@@ -38,7 +38,7 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
   const abort = new AbortController();
   request.signal?.addEventListener("abort", () => abort.abort(), { once: true });
   try {
-    const outcome = await runMonitor(db, site, { trigger: "manual", timeBudgetMs: 270_000, signal: abort.signal });
+    const outcome = await runMonitor(db, site, { timeBudgetMs: 270_000, signal: abort.signal });
     return Response.json(outcome);
   } catch (err) {
     if (err instanceof MonitorAbortedError) return Response.json({ error: err.message }, { status: 499 });

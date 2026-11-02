@@ -13,7 +13,7 @@ export default function NewSitePage() {
     <main className="mx-auto w-full max-w-5xl px-4 py-8 md:px-8">
       <PageTitle
         title="サイト追加"
-        lead="登録したサイトは、選んだ頻度で自動診断します（毎日 3:00 ごろ）。登録後の画面で「今すぐ診断」を押すと、最初の結果をすぐに取れます。"
+        lead="登録だけでは診断は始まりません。登録後の画面で「今すぐ診断」を押すと実行します。"
       />
       <div className="max-w-2xl">
         <AddSiteForm />

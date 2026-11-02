@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-09",
+  "updatedAt": "2026-11-02",
   "systemName": "サイト健診（HP Checker）",
   "sourceOfTruth": "src/data/system-architecture.json",
   "repository": {
@@ -18,7 +18,12 @@
       "id": "manual-audit",
       "title": "手動サイト診断",
       "description": "利用者がURLを入力し、対象サイトをクロールしてSEO・AIOレポートを画面とPDFで確認します。",
-      "steps": ["利用者", "Next.js画面", "POST /api/site", "診断対象サイト"]
+      "steps": [
+        "利用者",
+        "Next.js画面",
+        "POST /api/site",
+        "診断対象サイト"
+      ]
     },
     {
       "id": "company-site-settings",
@@ -31,30 +36,46 @@
       ]
     },
     {
-      "id": "scheduled-monitoring",
-      "title": "定期監視",
-      "description": "Vercel Cronが期限の来たサイトを診断し、結果・リンク切れ・通知をPostgresへ保存します。",
-      "steps": ["Vercel Cron", "GET /api/cron/monitor", "診断エンジン", "Postgres"]
+      "id": "manual-history",
+      "title": "手動診断と履歴の保存",
+      "description": "利用者が「今すぐ診断」を押したときだけ、診断結果・リンク切れ・前回比較をPostgresへ保存します。",
+      "steps": [
+        "利用者の実行指示",
+        "POST /api/monitor/sites/[id]/run",
+        "診断エンジン",
+        "Postgres"
+      ]
     },
     {
       "id": "seo-automation",
-      "title": "SEO自動分析",
-      "description": "Codexから保護されたAPIを呼び、技術診断・GA4・Search Consoleを統合して改善候補を返します。",
-      "steps": ["Codex", "POST /api/automation/seo-report", "Vercel OIDC / Google WIF", "GA4 + GSC"]
+      "title": "依頼時のSEO分析",
+      "description": "利用者の依頼を受けたCodexが保護されたAPIを呼び、技術診断・GA4・Search Consoleから修正候補を返します。変更・公開は人の確認後に実施します。",
+      "steps": [
+        "利用者の依頼",
+        "Codex",
+        "POST /api/automation/seo-report",
+        "GA4 + GSC",
+        "人による結果・修正案の確認"
+      ]
     },
     {
       "id": "deployment",
       "title": "開発・公開",
-      "description": "Codexクラウド環境で編集・検証し、GitHub mainへの反映をきっかけにVercelが本番公開します。",
-      "steps": ["Codexクラウド環境", "GitHub main", "Vercel Build", "本番ツール"]
+      "description": "編集・ローカル検証後に人が変更を確認し、承認されたコミットだけをVercelへ手動公開します。Git更新を契機とする自動公開は無効にします。",
+      "steps": [
+        "編集・ローカル検証",
+        "人の確認",
+        "承認されたGitコミット",
+        "Vercelの手動デプロイ"
+      ]
     },
     {
       "id": "development-history",
       "title": "開発・更新履歴",
-      "description": "ビルド時にGitの直近最大100件のコミットをJSONへ生成し、設定画面で日本時間の日付ごとに表示します。Gitのない環境では同梱した履歴を使い、GitHubの各変更へリンクします。",
+      "description": "担当者がnpm run history:updateを明示的に実行し、Gitの直近最大100件の履歴を設定画面用JSONへ生成します。ビルド・開発サーバー起動からの自動実行はありません。",
       "steps": [
+        "担当者がnpm run history:updateを実行",
         "Gitコミット履歴",
-        "npm run history:update（prebuild / predev）",
         "src/data/development-history.json",
         "設定の開発・更新履歴"
       ]
@@ -91,16 +112,23 @@
       "purpose": "ソースコード・README・変更履歴の保管",
       "authentication": "GitHub認証",
       "status": "active",
-      "configuration": ["main branch"]
+      "configuration": [
+        "main branch"
+      ]
     },
     {
       "name": "Vercel",
-      "service": "Hosting / Build / Cron / OIDC",
+      "service": "Hosting / Manual Build / OIDC",
       "category": "実行基盤",
-      "purpose": "Next.jsのビルド・公開、定期実行、Google向け短期OIDCトークンの発行",
+      "purpose": "人が承認したビルドの手動公開と、依頼時のGoogle向け短期OIDCトークン発行",
       "authentication": "GitHub連携・Vercel OIDC",
       "status": "active",
-      "configuration": ["x-vercel-oidc-token（実行時のリクエストヘッダーから取得）", "VERCEL_OIDC_TOKEN（ローカル・ビルド時の代替）", "OIDC issuer mode: Team"]
+      "configuration": [
+        "x-vercel-oidc-token（実行時のリクエストヘッダーから取得）",
+        "VERCEL_OIDC_TOKEN（ローカル・ビルド時の代替）",
+        "OIDC issuer mode: Team",
+        "git.deploymentEnabled=false / crons=[]（自動実行・自動公開を再開しない）"
+      ]
     },
     {
       "name": "Google Analytics Data API",
@@ -109,7 +137,13 @@
       "purpose": "google / organicの訪問・選択したキーイベント・セッション成果率・入口ページ・行動イベントを取得",
       "authentication": "Google Workload Identity + サービスアカウント",
       "status": "pending-env",
-      "configuration": ["GA4_PROPERTY_ID", "GA4_PRIMARY_KEY_EVENT（任意）", "BASIC_AUTH_PASSWORD（本番画面で必須）", "GOOGLE_SERVICE_ACCOUNT_EMAIL", "GOOGLE_WORKLOAD_IDENTITY_AUDIENCE"]
+      "configuration": [
+        "GA4_PROPERTY_ID",
+        "GA4_PRIMARY_KEY_EVENT（任意）",
+        "BASIC_AUTH_PASSWORD（本番画面で必須）",
+        "GOOGLE_SERVICE_ACCOUNT_EMAIL",
+        "GOOGLE_WORKLOAD_IDENTITY_AUDIENCE"
+      ]
     },
     {
       "name": "Google Search Console API",
@@ -118,7 +152,11 @@
       "purpose": "ウェブ検索の合計・ページ・検索語句を独立取得し、期間・デバイスをそろえて比較",
       "authentication": "Google Workload Identity + サービスアカウント",
       "status": "pending-env",
-      "configuration": ["GSC_SITE_URL", "GOOGLE_SERVICE_ACCOUNT_EMAIL", "GOOGLE_WORKLOAD_IDENTITY_AUDIENCE"]
+      "configuration": [
+        "GSC_SITE_URL",
+        "GOOGLE_SERVICE_ACCOUNT_EMAIL",
+        "GOOGLE_WORKLOAD_IDENTITY_AUDIENCE"
+      ]
     },
     {
       "name": "Google Security Token Service API",
@@ -127,7 +165,9 @@
       "purpose": "Vercel OIDCトークンをGoogleの短期認証情報へ交換",
       "authentication": "OIDC / OAuth 2.0 Token Exchange",
       "status": "pending-verification",
-      "configuration": ["GOOGLE_WORKLOAD_IDENTITY_AUDIENCE"]
+      "configuration": [
+        "GOOGLE_WORKLOAD_IDENTITY_AUDIENCE"
+      ]
     },
     {
       "name": "IAM Service Account Credentials API",
@@ -136,16 +176,20 @@
       "purpose": "サービスアカウントの短期アクセストークンを発行",
       "authentication": "Workload Identity Federation",
       "status": "pending-verification",
-      "configuration": ["GOOGLE_SERVICE_ACCOUNT_EMAIL"]
+      "configuration": [
+        "GOOGLE_SERVICE_ACCOUNT_EMAIL"
+      ]
     },
     {
       "name": "PostgreSQL",
       "service": "Neon / Supabase / Vercel Postgres等",
       "category": "データ保存",
-      "purpose": "定期監視サイト、診断履歴、リンク切れ、通知を保存",
+      "purpose": "手動診断の登録サイト、診断履歴、リンク切れ、通知を保存",
       "authentication": "接続文字列（サーバー側のみ）",
       "status": "optional",
-      "configuration": ["DATABASE_URL"]
+      "configuration": [
+        "DATABASE_URL"
+      ]
     },
     {
       "name": "診断対象Webサイト",
@@ -154,7 +198,10 @@
       "purpose": "公開HTML、robots.txt、sitemap、内部リンクを取得して診断",
       "authentication": "なし（公開URLのみ）",
       "status": "active",
-      "configuration": ["SITE_MAX_PAGES", "ALLOW_PRIVATE_HOSTS（開発時のみ）"]
+      "configuration": [
+        "SITE_MAX_PAGES",
+        "ALLOW_PRIVATE_HOSTS（開発時のみ）"
+      ]
     },
     {
       "name": "Google検索候補",
@@ -186,12 +233,36 @@
     }
   ],
   "internalApis": [
-    { "method": "GET", "path": "/api/analytics/report", "purpose": "GSC・GA4を同条件で取得し、対象期間と同じ長さの前期間を比較（片方の失敗は個別表示）", "auth": "サイト全体Basic認証（本番では必須）" },
-    { "method": "POST", "path": "/api/site", "purpose": "サイト全体をクロールし、進捗と診断結果を配信", "auth": "任意のサイト全体Basic認証" },
-    { "method": "POST", "path": "/api/automation/seo-report", "purpose": "技術診断・GA4・GSCを統合したSEOレポート（期間・デバイス・主要成果を指定可能、keywordSeeds指定時は無料検索候補も取得）", "auth": "AUTOMATION_API_KEY（Bearer）" },
-    { "method": "GET", "path": "/api/cron/monitor", "purpose": "期限の来た監視サイトを定期診断", "auth": "CRON_SECRET（Bearer）" },
-    { "method": "POST", "path": "/api/monitor/sites/[id]/run", "purpose": "指定した監視サイトを今すぐ診断", "auth": "サイト全体Basic認証" },
-    { "method": "GET", "path": "/api/monitor/alerts/unread", "purpose": "未読通知数を取得", "auth": "サイト全体Basic認証" },
+    {
+      "method": "GET",
+      "path": "/api/analytics/report",
+      "purpose": "GSC・GA4を同条件で取得し、対象期間と同じ長さの前期間を比較（片方の失敗は個別表示）",
+      "auth": "サイト全体Basic認証（本番では必須）"
+    },
+    {
+      "method": "POST",
+      "path": "/api/site",
+      "purpose": "サイト全体をクロールし、進捗と診断結果を配信",
+      "auth": "任意のサイト全体Basic認証"
+    },
+    {
+      "method": "POST",
+      "path": "/api/automation/seo-report",
+      "purpose": "技術診断・GA4・GSCを統合したSEOレポート（期間・デバイス・主要成果を指定可能、keywordSeeds指定時は無料検索候補も取得）",
+      "auth": "AUTOMATION_API_KEY（Bearer）"
+    },
+    {
+      "method": "POST",
+      "path": "/api/monitor/sites/[id]/run",
+      "purpose": "指定した監視サイトを今すぐ診断",
+      "auth": "サイト全体Basic認証"
+    },
+    {
+      "method": "GET",
+      "path": "/api/monitor/alerts/unread",
+      "purpose": "未読通知数を取得",
+      "auth": "サイト全体Basic認証"
+    },
     {
       "method": "GET",
       "path": "/api/keywords",
@@ -206,14 +277,15 @@
     "APIキー、パスワード、接続文字列、JSON秘密鍵などの秘密値はJSON・README・画面へ保存しない。",
     "本番反映前にlint、typecheck、test、buildを実行し、変更した連携の疎通も確認する。",
     "Google分析画面は本番でBasic認証を必須とし、未取得・匿名化・取得上限・少ない訪問数を0や成果判定へ置き換えない。実サイトの分析と公開は利用者の依頼に従う。",
-    "開発・更新履歴は npm run history:update で生成する。公開前にコミットの件名・本文・作者名が画面に表示されることを確認する。浅いクローンでは取得できた履歴のみ表示する。",
-    "検索候補は検索数・人気順・自社の実績として扱わない。分類は語句からの目安。無料公開エンドポイントの利用条件と応答変更を確認し、取得失敗は代替データで埋めない。"
+    "開発・更新履歴は npm run history:update で生成する。自動起動フックは使わず、公開前にコミットの件名・本文・作者名が画面に表示されることを確認する。浅いクローンでは取得できた履歴のみ表示する。",
+    "検索候補は検索数・人気順・自社の実績として扱わない。分類は語句からの目安。無料公開エンドポイントの利用条件と応答変更を確認し、取得失敗は代替データで埋めない。",
+    "GitHub Actions・Cron・無人の変更/公開/ロールバックを追加しない。診断は人の指示時に実行し、変更と公開は人が具体的な結果を確認してから行う。"
   ],
   "reproductionSteps": [
     "GitHubのmainブランチを取得し、npm installを実行する。",
     ".env.exampleを.env.localへコピーし、使う機能の環境変数だけを設定する。",
     "GA4/GSC連携ではGoogle API、サービスアカウント、Workload Identity、各プロパティ権限を設定する。",
     "npm run docs:system:check、npm run lint、npm run typecheck、npm test、npm run buildで検証する。",
-    "GitHub mainとVercelを接続し、本番用環境変数を設定してデプロイする。"
+    "本番用環境変数を設定し、人が変更・検証結果を確認した後で手動デプロイする。Git自動デプロイとCronは有効にしない。"
   ]
 }

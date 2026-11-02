@@ -22,7 +22,7 @@ export default async function AlertsPage({ searchParams }: { searchParams: Promi
     <main className="mx-auto w-full max-w-5xl px-4 py-8 md:px-8">
       <PageTitle
         title="通知"
-        lead="定期診断で前回より悪くなった点・直った点をお知らせします。"
+        lead="実行した診断を前回と比較し、悪くなった点・直った点を表示します。"
         actions={
           unread > 0 ? (
             <form action={markAllAlertsReadAction}>

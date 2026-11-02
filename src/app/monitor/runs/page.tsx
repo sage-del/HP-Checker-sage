@@ -10,7 +10,7 @@ import { scoreTone, TONE_CLASSES } from "@/lib/ui/palette";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "診断履歴" };
 
-const TRIGGER_LABEL = { schedule: "定期", manual: "手動" } as const;
+const TRIGGER_LABEL = { schedule: "旧・定期", manual: "手動" } as const;
 
 /** 全サイトの診断の記録（サイト・結果で絞り込める） */
 export default async function RunsPage({ searchParams }: { searchParams: Promise<{ site?: string; status?: string }> }) {
@@ -26,7 +26,7 @@ export default async function RunsPage({ searchParams }: { searchParams: Promise
 
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-8 md:px-8">
-      <PageTitle title="診断履歴" lead="定期診断と「今すぐ診断」の記録です（新しい順に最大 200 件）。" />
+      <PageTitle title="診断履歴" lead="手動診断と過去の診断の記録です（新しい順に最大 200 件）。" />
 
       <form className="mb-4 flex flex-wrap items-end gap-3" method="get">
         <label className="text-[13px] font-bold text-ink">

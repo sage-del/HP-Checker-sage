@@ -16,14 +16,13 @@ import { ConfirmSubmit } from "@/components/monitor/ConfirmSubmit";
 import { RunNowButton } from "@/components/monitor/RunNowButton";
 import { getDb, isMonitorConfigured } from "@/lib/monitor/db";
 import { formatJst, formatJstShort } from "@/lib/monitor/format";
-import { FREQUENCIES, FREQUENCY_LABEL } from "@/lib/monitor/schedule";
 import { getRun, getSite, listAlerts, listRuns } from "@/lib/monitor/store";
 import { formatDuration } from "@/lib/report/format";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "監視サイト" };
 
-const TRIGGER_LABEL = { schedule: "定期", manual: "手動" } as const;
+const TRIGGER_LABEL = { schedule: "旧・定期", manual: "手動" } as const;
 
 export default async function SitePage({ params }: { params: Promise<{ id: string }> }) {
   if (!isMonitorConfigured()) return <NotConfigured />;
@@ -74,7 +73,7 @@ export default async function SitePage({ params }: { params: Promise<{ id: strin
 
       <Section title="総合スコアの推移">
         {trend.length === 0 ? (
-          <p className="text-[13px] text-muted">まだ診断していません。「今すぐ診断」を押すか、次の定期診断を待ってください。</p>
+          <p className="text-[13px] text-muted">まだ診断していません。「今すぐ診断」を押すと実行します。</p>
         ) : (
           <div className="rounded-xl border border-line bg-panel p-4">
             <LineChart points={trend} ariaLabel={`総合スコアの推移（直近 ${trend.length} 回）`} />
@@ -164,32 +163,11 @@ export default async function SitePage({ params }: { params: Promise<{ id: strin
                 className="mt-1 block h-10 w-56 rounded-lg border border-line bg-panel px-3 text-sm font-normal outline-none focus:border-accent focus:ring-2 focus:ring-accent/25"
               />
             </label>
-            <label className="text-[13px] font-bold text-ink">
-              診断の頻度
-              <select
-                name="frequency"
-                defaultValue={site.frequency}
-                className="mt-1 block h-10 rounded-lg border border-line bg-panel px-3 text-sm font-normal outline-none focus:border-accent focus:ring-2 focus:ring-accent/25"
-              >
-                {FREQUENCIES.map((f) => (
-                  <option key={f} value={f}>
-                    {FREQUENCY_LABEL[f]}
-                  </option>
-                ))}
-              </select>
-            </label>
             <button type="submit" className="h-10 rounded-lg border border-line bg-panel px-4 text-sm font-bold text-ink hover:bg-surface">
               保存
             </button>
           </form>
           <div className="flex flex-wrap gap-3 border-t border-line pt-4">
-            <form action={updateSiteAction}>
-              <input type="hidden" name="id" value={site.id} />
-              <input type="hidden" name="enabled" value={site.enabled ? "false" : "true"} />
-              <button type="submit" className="h-9 rounded-lg border border-line bg-panel px-3 text-sm font-bold text-ink hover:bg-surface">
-                {site.enabled ? "定期診断を止める" : "定期診断を再開する"}
-              </button>
-            </form>
             <form action={deleteSiteAction}>
               <input type="hidden" name="id" value={site.id} />
               <ConfirmSubmit

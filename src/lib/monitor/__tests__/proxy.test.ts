@@ -44,3 +44,17 @@ describe("Google分析画面のアクセス制限", () => {
     expect(proxy(new NextRequest("https://example.com/api/automation/seo-report")).status).toBe(200);
   });
 });
+
+// A stale scheduler must not reach the manual diagnosis engine, even with valid credentials.
+describe("retired scheduled execution", () => {
+  it("rejects the retired URL before authentication or any diagnosis", () => {
+    process.env.BASIC_AUTH_PASSWORD = "monitor-password";
+    for (const authorization of [undefined, "Bearer old-cron-secret", `Basic ${Buffer.from("admin:monitor-password").toString("base64")}`]) {
+      const response = proxy(new NextRequest("https://example.com/api/cron/monitor", {
+        headers: authorization ? { authorization } : {},
+      }));
+      expect(response.status).toBe(410);
+      expect(response.headers.get("x-middleware-next")).toBeNull();
+    }
+  });
+});

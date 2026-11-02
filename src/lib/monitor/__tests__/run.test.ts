@@ -43,12 +43,13 @@ afterAll(async () => {
 
 describe("runMonitor", () => {
   it("records runs, broken links and alerts across consecutive diagnoses", async () => {
-    const site = await addSite(db, { url: `${origin}/`, name: "テスト", frequency: "daily" });
+    const site = await addSite(db, { url: `${origin}/`, name: "テスト" });
 
     // 1 回目: /old が 404
-    const first = await runMonitor(db, site, { trigger: "manual", timeBudgetMs: 60_000 });
+    const first = await runMonitor(db, site, { timeBudgetMs: 60_000 });
     expect(first.status).toBe("success");
     const run1 = await getRun(db, first.runId);
+    expect(run1?.trigger).toBe("manual");
     expect(run1?.result?.links?.broken.map((b) => [new URL(b.url).pathname, b.status, b.kind])).toEqual([
       ["/old", 404, "link"],
     ]);
@@ -59,19 +60,19 @@ describe("runMonitor", () => {
 
     // 2 回目: 画像も切れた → 新たなリンク切れだけを知らせる
     breakImage = true;
-    const second = await runMonitor(db, site, { trigger: "schedule", timeBudgetMs: 60_000 });
+    const second = await runMonitor(db, site, { timeBudgetMs: 60_000 });
     expect(second.alerts.map((a) => a.title)).toContain("リンク切れが新たに 1 件見つかりました");
     expect(second.alerts.find((a) => a.title.startsWith("リンク切れ"))?.details).toEqual([`${origin}/logo.png`]);
 
     // 3 回目: サイトが落ちた → 失敗を記録して知らせる
     down = true;
-    const third = await runMonitor(db, site, { trigger: "schedule", timeBudgetMs: 60_000 });
+    const third = await runMonitor(db, site, { timeBudgetMs: 60_000 });
     expect(third.status).toBe("error");
     expect(third.alerts.map((a) => a.title)).toEqual(["サイトを診断できませんでした"]);
 
     // 4 回目: 復旧 → 復旧を知らせる（比較の相手は 2 回目）
     down = false;
-    const fourth = await runMonitor(db, site, { trigger: "schedule", timeBudgetMs: 60_000 });
+    const fourth = await runMonitor(db, site, { timeBudgetMs: 60_000 });
     expect(fourth.status).toBe("success");
     expect(fourth.alerts.map((a) => a.title)).toEqual(["診断が再開できました"]);
 
@@ -82,10 +83,10 @@ describe("runMonitor", () => {
 
 describe("runMonitor (aborted)", () => {
   it("does not record a run that was aborted midway", async () => {
-    const site = await addSite(db, { url: `${origin}/about`, name: "中止", frequency: "daily" });
+    const site = await addSite(db, { url: `${origin}/about`, name: "中止" });
     const abort = new AbortController();
     abort.abort();
-    await expect(runMonitor(db, site, { trigger: "manual", timeBudgetMs: 60_000, signal: abort.signal })).rejects.toThrow(
+    await expect(runMonitor(db, site, { timeBudgetMs: 60_000, signal: abort.signal })).rejects.toThrow(
       "診断を中止しました",
     );
     expect(await listRuns(db, site.id)).toEqual([]);

@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { snapshotOf } from "@/lib/report/history";
-import type { Db } from "../db";
+import { migrate, type Db } from "../db";
 import {
   addAlerts,
   addSite,
@@ -49,18 +49,18 @@ async function success(siteId: number, iso: string, overall: number) {
 
 describe("sites", () => {
   it("adds, updates and rejects duplicates", async () => {
-    const site = await addSite(db, { url: "https://example.com/", name: "本社サイト", frequency: "daily" });
-    expect(site).toMatchObject({ name: "本社サイト", frequency: "daily", enabled: true, lastRunAt: null });
-    await expect(addSite(db, { url: "https://example.com/", name: "x", frequency: "weekly" })).rejects.toBeInstanceOf(
+    const site = await addSite(db, { url: "https://example.com/", name: "本社サイト" });
+    expect(site).toMatchObject({ name: "本社サイト", lastRunAt: null });
+    await expect(addSite(db, { url: "https://example.com/", name: "x" })).rejects.toBeInstanceOf(
       DuplicateSiteError,
     );
-    await updateSite(db, site.id, { enabled: false, frequency: "weekly" });
+    await updateSite(db, site.id, { name: "更新名" });
     const [overview] = await listSiteOverviews(db);
-    expect(overview).toMatchObject({ enabled: false, frequency: "weekly", latest: null, unreadAlerts: 0 });
+    expect(overview).toMatchObject({ name: "更新名", latest: null, unreadAlerts: 0 });
   });
 
   it("deleting a site removes its runs and alerts", async () => {
-    const site = await addSite(db, { url: "https://example.com/", name: "a", frequency: "daily" });
+    const site = await addSite(db, { url: "https://example.com/", name: "a" });
     const runId = await success(site.id, "2026-10-01T00:00:00Z", 80);
     await addAlerts(db, site.id, runId, [{ severity: "info", title: "t", details: [] }]);
     await deleteSite(db, site.id);
@@ -71,7 +71,7 @@ describe("sites", () => {
 
 describe("runs", () => {
   it("saves runs, updates last_run_at, and reports latest and previous score", async () => {
-    const site = await addSite(db, { url: "https://example.com/", name: "a", frequency: "daily" });
+    const site = await addSite(db, { url: "https://example.com/", name: "a" });
     await success(site.id, "2026-10-01T00:00:00Z", 70);
     const id = await success(site.id, "2026-10-02T00:00:00Z", 82);
 
@@ -88,7 +88,7 @@ describe("runs", () => {
   });
 
   it("finds the previous run and the previous successful run", async () => {
-    const site = await addSite(db, { url: "https://example.com/", name: "a", frequency: "daily" });
+    const site = await addSite(db, { url: "https://example.com/", name: "a" });
     const first = await success(site.id, "2026-10-01T00:00:00Z", 70);
     const failed = await saveRun(db, {
       siteId: site.id,
@@ -114,7 +114,7 @@ describe("runs", () => {
   });
 
   it("keeps the full report only for recent runs", async () => {
-    const site = await addSite(db, { url: "https://example.com/", name: "a", frequency: "daily" });
+    const site = await addSite(db, { url: "https://example.com/", name: "a" });
     const ids: number[] = [];
     for (let i = 0; i < KEEP_FULL_RESULTS + 2; i++) {
       ids.push(await success(site.id, new Date(Date.UTC(2026, 0, 1 + i)).toISOString(), 50 + i));
@@ -128,8 +128,8 @@ describe("runs", () => {
 
 describe("alerts", () => {
   it("lists, counts and marks alerts as read", async () => {
-    const a = await addSite(db, { url: "https://a.example/", name: "A", frequency: "daily" });
-    const b = await addSite(db, { url: "https://b.example/", name: "B", frequency: "daily" });
+    const a = await addSite(db, { url: "https://a.example/", name: "A" });
+    const b = await addSite(db, { url: "https://b.example/", name: "B" });
     await addAlerts(db, a.id, null, [
       { severity: "critical", title: "重大", details: ["x", "y"] },
       { severity: "info", title: "お知らせ", details: [] },
@@ -156,8 +156,8 @@ describe("alerts", () => {
 describe("cross-site views", () => {
   it("lists recent runs across sites and the latest broken links per site", async () => {
     const { listRecentRuns, latestLinksBySite } = await import("../store");
-    const a = await addSite(db, { url: "https://a.example/", name: "A", frequency: "daily" });
-    const b = await addSite(db, { url: "https://b.example/", name: "B", frequency: "daily" });
+    const a = await addSite(db, { url: "https://a.example/", name: "A" });
+    const b = await addSite(db, { url: "https://b.example/", name: "B" });
     const links = (url: string) => ({ found: 3, checked: 3, unchecked: 0, durationMs: 1, broken: [{ url, status: 404, kind: "link" as const, sources: [], sourceCount: 1 }] });
     const old = fakeResult({ overall: 60, links: links("https://a.example/old") });
     const now = fakeResult({ overall: 70, links: links("https://a.example/new") });
@@ -180,5 +180,17 @@ describe("cross-site views", () => {
       ["A", ["https://a.example/new"]],
       ["B", null],
     ]);
+  });
+});
+
+describe("retired scheduling migration", () => {
+  it("disables legacy flags while preserving sites and historical runs", async () => {
+    const site = await addSite(db, { url: "https://legacy.example/", name: "既存サイト" });
+    const runId = await success(site.id, "2026-10-01T00:00:00Z", 80);
+    await db.query("update monitor_sites set enabled = true where id = $1", [site.id]);
+    await migrate(db);
+    expect(await db.query("select enabled from monitor_sites where id = $1", [site.id])).toEqual([{ enabled: false }]);
+    expect((await getRun(db, runId))?.trigger).toBe("schedule");
+    expect((await listSiteOverviews(db))[0].name).toBe("既存サイト");
   });
 });

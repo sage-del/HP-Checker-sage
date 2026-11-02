@@ -10,7 +10,6 @@ import type { LinkCheckResult } from "@/lib/links/types";
 import type { DiagnosisSnapshot } from "@/lib/report/history";
 import type { AlertDraft, AlertSeverity } from "./alerts";
 import type { Db } from "./db";
-import type { Frequency } from "./schedule";
 
 /** レポートを丸ごと残す回数（サイトごと） */
 export const KEEP_FULL_RESULTS = 20;
@@ -24,8 +23,6 @@ export interface MonitorSite {
   id: number;
   url: string;
   name: string;
-  frequency: Frequency;
-  enabled: boolean;
   createdAt: Date;
   lastRunAt: Date | null;
 }
@@ -89,8 +86,6 @@ function siteFromRow(r: Row): MonitorSite {
     id: Number(r.id),
     url: String(r.url),
     name: String(r.name),
-    frequency: r.frequency as Frequency,
-    enabled: Boolean(r.enabled),
     createdAt: toDate(r.created_at),
     lastRunAt: toDateOrNull(r.last_run_at),
   };
@@ -151,12 +146,12 @@ export class DuplicateSiteError extends Error {
 
 export async function addSite(
   db: Db,
-  input: { url: string; name: string; frequency: Frequency },
+  input: { url: string; name: string },
 ): Promise<MonitorSite> {
   const rows = await db.query(
-    `insert into monitor_sites (url, name, frequency) values ($1, $2, $3)
+    `insert into monitor_sites (url, name, enabled) values ($1, $2, false)
      on conflict (url) do nothing returning *`,
-    [input.url, input.name, input.frequency],
+    [input.url, input.name],
   );
   if (!rows[0]) throw new DuplicateSiteError();
   return siteFromRow(rows[0]);
@@ -165,13 +160,11 @@ export async function addSite(
 export async function updateSite(
   db: Db,
   id: number,
-  patch: Partial<Pick<MonitorSite, "name" | "frequency" | "enabled">>,
+  patch: Partial<Pick<MonitorSite, "name">>,
 ): Promise<void> {
   const sets: string[] = [];
   const params: unknown[] = [];
   if (patch.name !== undefined) sets.push(`name = $${params.push(patch.name)}`);
-  if (patch.frequency !== undefined) sets.push(`frequency = $${params.push(patch.frequency)}`);
-  if (patch.enabled !== undefined) sets.push(`enabled = $${params.push(patch.enabled)}`);
   if (sets.length === 0) return;
   params.push(id);
   await db.query(`update monitor_sites set ${sets.join(", ")} where id = $${params.length}`, params);

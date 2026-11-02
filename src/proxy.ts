@@ -5,7 +5,6 @@
  *   （ユーザー名は BASIC_AUTH_USER、既定 "admin"）。社内向けに公開するときの設定。
  * - 監視機能（DATABASE_URL）を本番で有効にしているのにパスワードが無いときは、
  *   監視の画面と API だけを止める。診断の記録や通知を誰でも見られる状態にしないため。
- * - /api/cron/* は Vercel Cron が呼ぶので対象外（CRON_SECRET で別に確かめる）。
  * - /api/automation/* は Codex が呼ぶので Basic 認証の対象外。
  *   各 Route Handler が AUTOMATION_API_KEY の Bearer 認証を行う。
  */
@@ -17,6 +16,11 @@ const ANALYTICS_PATH = /^\/(analytics|api\/analytics)(\/|$)/;
 const AUTOMATION_PATH = /^\/api\/automation(\/|$)/;
 
 export function proxy(request: NextRequest) {
+  // 廃止した実行URLは、古いCron設定から呼ばれても診断を開始しない。
+  if (/^\/api\/cron(?:\/|$)/.test(request.nextUrl.pathname)) {
+    return new NextResponse("定期実行機能は廃止しました", { status: 410 });
+  }
+
   if (AUTOMATION_PATH.test(request.nextUrl.pathname)) return NextResponse.next();
 
   const password = process.env.BASIC_AUTH_PASSWORD;
@@ -50,6 +54,6 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // 静的ファイル・アイコン・Cron は対象外。automation は proxy 内で明示的に通す。
-  matcher: ["/((?!_next/static|_next/image|api/cron/|favicon\\.ico|icon\\.svg|apple-icon\\.png|icon-\\d+\\.png|manifest\\.webmanifest).*)"],
+  // 静的ファイル・アイコンは対象外。依頼時の分析APIは専用のBearer認証を使う。
+  matcher: ["/((?!_next/static|_next/image|favicon\\.ico|icon\\.svg|apple-icon\\.png|icon-\\d+\\.png|manifest\\.webmanifest).*)"],
 };

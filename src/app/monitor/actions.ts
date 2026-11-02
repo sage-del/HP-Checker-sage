@@ -8,7 +8,6 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { assertPublicHost, FetchError, normalizeUrl } from "@/lib/analyzer/fetch";
 import { getDb } from "@/lib/monitor/db";
-import { isFrequency } from "@/lib/monitor/schedule";
 import {
   addSite,
   deleteSite,
@@ -26,8 +25,6 @@ const MAX_NAME = 60;
 
 export async function addSiteAction(_prev: AddSiteState, form: FormData): Promise<AddSiteState> {
   const rawUrl = String(form.get("url") ?? "");
-  const frequency = String(form.get("frequency") ?? "daily");
-  if (!isFrequency(frequency)) return { error: "診断の頻度を選んでください" };
 
   let url: URL;
   try {
@@ -40,7 +37,7 @@ export async function addSiteAction(_prev: AddSiteState, form: FormData): Promis
 
   let id: number;
   try {
-    id = (await addSite(await getDb(), { url: url.toString(), name, frequency })).id;
+    id = (await addSite(await getDb(), { url: url.toString(), name })).id;
   } catch (err) {
     if (err instanceof DuplicateSiteError) return { error: err.message };
     throw err;
@@ -59,10 +56,6 @@ function idOf(form: FormData): number {
 export async function updateSiteAction(form: FormData): Promise<void> {
   const id = idOf(form);
   const patch: Parameters<typeof updateSite>[2] = {};
-  const frequency = form.get("frequency");
-  if (isFrequency(frequency)) patch.frequency = frequency;
-  const enabled = form.get("enabled");
-  if (enabled === "true" || enabled === "false") patch.enabled = enabled === "true";
   const name = form.get("name");
   if (typeof name === "string" && name.trim()) patch.name = name.trim().slice(0, MAX_NAME);
   await updateSite(await getDb(), id, patch);

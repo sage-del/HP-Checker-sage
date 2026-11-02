@@ -1,7 +1,7 @@
 /**
- * アクセス制限（Basic 認証）と Cron の呼び出し元の確認。純関数だけを置く。
+ * アクセス制限（Basic 認証）。純関数だけを置く。
  *
- * proxy.ts（全ページの手前）と Cron の Route Handler から使う。
+ * proxy.ts（全ページの手前）から使う。
  */
 
 /** 長さの違いも含めて、比較にかかる時間が中身で変わらない文字列比較 */
@@ -31,13 +31,4 @@ export function checkBasicAuth(header: string | null, user: string, password: st
   const userOk = safeEqual(decoded.slice(0, sep), user);
   const passOk = safeEqual(decoded.slice(sep + 1), password);
   return userOk && passOk;
-}
-
-/**
- * Cron からの呼び出しか（Vercel Cron は Authorization: Bearer <CRON_SECRET> を付けて呼ぶ）。
- * CRON_SECRET が未設定なら、開発中だけ通す。
- */
-export function isAuthorizedCron(header: string | null, secret: string | undefined, isProduction: boolean): boolean {
-  if (!secret) return !isProduction;
-  return header !== null && safeEqual(header, `Bearer ${secret}`);
 }

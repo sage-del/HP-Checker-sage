@@ -1,21 +1,19 @@
 /**
  * 監視サイトを 1 回診断して、記録と通知を残す。
  *
- * 定期診断（/api/cron/monitor）と「今すぐ診断」（/api/monitor/sites/[id]/run）の両方がここを通る。
+ * 利用者が「今すぐ診断」（/api/monitor/sites/[id]/run）を実行したときだけ呼ぶ。
  */
 import { FetchError } from "@/lib/analyzer/fetch";
 import { analyzeSite } from "@/lib/analyzer/site";
 import { snapshotOf } from "@/lib/report/history";
 import { deriveAlerts, type AlertDraft } from "./alerts";
 import type { Db } from "./db";
-import { addAlerts, previousRuns, saveRun, type MonitorSite, type RunTrigger } from "./store";
+import { addAlerts, previousRuns, saveRun, type MonitorSite } from "./store";
 
 /** リンク切れの確認に回す時間の上限 */
 const LINK_BUDGET_MAX_MS = 45_000;
 /** クロールの外側（入口ページ・robots.txt の取得、保存）に見込む時間 */
 const OVERHEAD_MS = 15_000;
-/** これより時間が残っていなければ診断を始めない */
-export const MIN_RUN_BUDGET_MS = 60_000;
 
 /** 途中で止めた診断。中途半端な結果で誤った通知を出さないよう、記録しない */
 export class MonitorAbortedError extends Error {
@@ -43,7 +41,7 @@ export function splitBudget(totalMs: number): { crawlMs: number; linkMs: number 
 export async function runMonitor(
   db: Db,
   site: MonitorSite,
-  options: { trigger: RunTrigger; timeBudgetMs: number; signal?: AbortSignal },
+  options: { timeBudgetMs: number; signal?: AbortSignal },
 ): Promise<MonitorRunResult> {
   const startedAt = new Date();
   const before = await previousRuns(db, site.id);
@@ -59,7 +57,7 @@ export async function runMonitor(
     const snapshot = snapshotOf(result);
     const runId = await saveRun(db, {
       siteId: site.id,
-      trigger: options.trigger,
+      trigger: "manual",
       startedAt,
       finishedAt: new Date(),
       status: "success",
@@ -80,7 +78,7 @@ export async function runMonitor(
     if (!(err instanceof FetchError)) console.error("[monitor] unexpected error", site.url, err);
     const runId = await saveRun(db, {
       siteId: site.id,
-      trigger: options.trigger,
+      trigger: "manual",
       startedAt,
       finishedAt: new Date(),
       status: "error",
